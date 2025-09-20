@@ -145,7 +145,8 @@ export default function ProductionPage() {
         quantityPkts: 0, 
         weightKg: 0, 
         reelNo: '', 
-        notes: '' 
+        notes: '',
+        packing: 100
       }] 
     }));
   };
@@ -158,7 +159,8 @@ export default function ProductionPage() {
         quantityPkts: 0, 
         weightKg: 0, 
         reelNo: '', 
-        notes: '' 
+        notes: '',
+        packing: 100
       }] 
     }));
   };
@@ -246,8 +248,8 @@ export default function ProductionPage() {
       next.width = product?.width || 0;
       next.grams = product?.grams || 0;
       next.length = product?.length || 0;
-      next.packing = 0;
-      next.brand = '';
+      next.packing = 100;
+      next.brand = (product as any)?.brand || '';
       storeAfter = next.storeId || '';
       materialOut[idx] = next;
       return { ...p, materialOut };

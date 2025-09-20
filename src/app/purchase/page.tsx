@@ -98,7 +98,7 @@ export default function PurchasePage() {
         ]);
         const [pData, sData, stData] = await Promise.all([pRes.json(), sRes.json(), stRes.json()]);
         if (pRes.ok) setProducts(pData.products || []);
-        if (sRes.ok) setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.description, code: s.code })));
+        if (sRes.ok) setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.person || s.description, code: s.code })));
         if (stRes.ok) setStores(stData.stores || []);
       } catch (e) {
         console.error('Error loading products/suppliers:', e);
@@ -201,7 +201,7 @@ export default function PurchasePage() {
   };
 
   const addItem = () => {
-    setForm((prev) => ({ ...prev, items: [...prev.items, { store: '', product: '', qty: 0, weight: 0 }] }));
+    setForm((prev) => ({ ...prev, items: [...prev.items, { store: '', product: '', qty: 0, weight: 0, packing: 100 }] }));
   };
 
   const removeItem = (index: number) => {
@@ -439,11 +439,11 @@ export default function PurchasePage() {
                     </div>
                     <input
                       type="text"
-                      value={form.paymentType === 'Credit' ? (selectedSupplier?.code || '') : ''}
+                      value={selectedSupplier?.code || ''}
                       readOnly
                       placeholder="Code"
                       className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-                      title="Supplier Code (shown for Credit)"
+                      title="Supplier Code"
                     />
                   </div>
                 </div>
@@ -780,7 +780,7 @@ export default function PurchasePage() {
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{inv.invoiceNumber || '-'}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.date?.toString()?.slice(0, 10)}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.items?.length || 0}</td>
-                          <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">${inv.totalAmount?.toFixed?.(2) || inv.totalAmount}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">PKR {inv.totalAmount?.toFixed?.(2) || inv.totalAmount}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center justify-center space-x-1">
                               <button 
@@ -790,6 +790,73 @@ export default function PurchasePage() {
                               >
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  // Simple print functionality - opens invoice in new window for printing
+                                  const printWindow = window.open('', '_blank');
+                                  if (printWindow) {
+                                    printWindow.document.write(`
+                                      <html>
+                                        <head>
+                                          <title>Purchase Invoice #${inv.invoiceNumber}</title>
+                                          <style>
+                                            body { font-family: Arial, sans-serif; padding: 20px; }
+                                            .header { text-align: center; margin-bottom: 20px; }
+                                            .details { margin-bottom: 20px; }
+                                            table { width: 100%; border-collapse: collapse; }
+                                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                                            th { background-color: #f2f2f2; }
+                                            .total { font-weight: bold; }
+                                          </style>
+                                        </head>
+                                        <body>
+                                          <div class="header">
+                                            <h2>Purchase Invoice</h2>
+                                            <p>Invoice #: ${inv.invoiceNumber || 'N/A'}</p>
+                                            <p>Date: ${inv.date?.toString()?.slice(0, 10) || 'N/A'}</p>
+                                            <p>Supplier: ${inv.supplier || 'N/A'}</p>
+                                          </div>
+                                          <table>
+                                            <thead>
+                                              <tr>
+                                                <th>Product</th>
+                                                <th>Qty</th>
+                                                <th>Weight</th>
+                                                <th>Rate</th>
+                                                <th>Value</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              ${(inv.items || []).map((item: any) => `
+                                                <tr>
+                                                  <td>${item.product || 'N/A'}</td>
+                                                  <td>${item.qty || 0}</td>
+                                                  <td>${item.weight || 0}</td>
+                                                  <td>PKR ${item.rate || 0}</td>
+                                                  <td>PKR ${item.value || 0}</td>
+                                                </tr>
+                                              `).join('')}
+                                            </tbody>
+                                          </table>
+                                          <div class="details">
+                                            <p class="total">Total Amount: PKR ${inv.totalAmount?.toFixed?.(2) || inv.totalAmount || 0}</p>
+                                            <p>Discount: PKR ${inv.discount || 0}</p>
+                                            <p>Freight: PKR ${inv.freight || 0}</p>
+                                          </div>
+                                          <script>window.print();</script>
+                                        </body>
+                                      </html>
+                                    `);
+                                    printWindow.document.close();
+                                  }
+                                }}
+                                className="text-green-600 hover:text-green-900 hover:bg-green-50 p-1 rounded transition-colors duration-200"
+                                title="Print invoice"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                                 </svg>
                               </button>
                               <button 

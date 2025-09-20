@@ -39,8 +39,8 @@ export default function LedgerReportPage() {
         fetch('/api/suppliers?limit=1000'),
       ]);
       const [cData, sData] = await Promise.all([cRes.json(), sRes.json()]);
-      setCustomers((cData.customers || []).map((c: any) => ({ _id: c._id, label: c.description })));
-      setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.description })));
+      setCustomers((cData.customers || []).map((c: any) => ({ _id: c._id, label: c.person || c.description })));
+      setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.person || s.description })));
     } catch (e) { console.error('Failed to load parties', e); }
   };
 

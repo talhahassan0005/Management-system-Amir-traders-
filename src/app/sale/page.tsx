@@ -88,6 +88,7 @@ export default function SaleInvoicePage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
+  const [saleInvoices, setSaleInvoices] = useState<SaleInvoice[]>([]);
   const [invoice, setInvoice] = useState<SaleInvoice>(makeInitialInvoice());
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -111,8 +112,24 @@ export default function SaleInvoicePage() {
     }
   };
 
+  const fetchSaleInvoices = async () => {
+    try {
+      const response = await fetch('/api/sale-invoices?limit=100');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSaleInvoices(data.invoices || []);
+      } else {
+        console.error('Error fetching sale invoices:', data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching sale invoices:', error);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchSaleInvoices();
     // Load customers for dropdown
     (async () => {
       try {
@@ -132,8 +149,8 @@ export default function SaleInvoicePage() {
     const fetchBalance = async () => {
       const name = (invoice.customer || '').trim();
       if (!name) return;
-      // find by description first, fallback to code
-      const cust = customers.find((c: any) => c?.description === name || c?.code === name);
+      // find by contact person first, then description, then code
+      const cust = customers.find((c: any) => c?.person === name || c?.description === name || c?.code === name);
       if (!cust?._id) return;
       try {
         const url = `/api/ledger?partyType=Customer&partyId=${encodeURIComponent(cust._id)}`;
@@ -199,7 +216,7 @@ export default function SaleInvoicePage() {
     width: 0,
     grams: 0,
     description: '',
-    packing: 0,
+    packing: 100,
     brand: '',
     reelNo: '',
     constant: '',
@@ -263,7 +280,7 @@ export default function SaleInvoicePage() {
         width: 0,
         grams: 0,
         description: '',
-        packing: 0,
+        packing: 100,
         brand: '',
         reelNo: '',
         constant: '',
@@ -506,7 +523,7 @@ export default function SaleInvoicePage() {
                   />
                   <datalist id="customer-list">
                     {customers.map(c => (
-                      <option key={c._id || c.code} value={c.description || c.code} />
+                      <option key={c._id || c.code} value={c.person || c.description || c.code} />
                     ))}
                   </datalist>
                 </div>
@@ -1080,6 +1097,107 @@ export default function SaleInvoicePage() {
 
         {/* Hidden printable content anchor */}
         <div ref={printRef} style={{ display: 'none' }} />
+
+        {/* Sales Records Section */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales Records</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Net Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {saleInvoices.map((saleInvoice: any) => (
+                    <tr key={saleInvoice._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {saleInvoice.invoiceNumber}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(saleInvoice.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {saleInvoice.customer}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        PKR {saleInvoice.netAmount?.toFixed(2) || '0.00'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => {
+                            setInvoice({
+                              ...saleInvoice,
+                              items: saleInvoice.items || []
+                            });
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (confirm('Are you sure you want to delete this sale invoice?')) {
+                              try {
+                                const response = await fetch(`/api/sale-invoices/${saleInvoice._id}`, {
+                                  method: 'DELETE',
+                                });
+                                if (response.ok) {
+                                  fetchSaleInvoices(); // Refresh the list
+                                } else {
+                                  console.error('Failed to delete sale invoice');
+                                }
+                              } catch (error) {
+                                console.error('Error deleting sale invoice:', error);
+                              }
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Set the invoice data for printing
+                            setInvoice({
+                              ...saleInvoice,
+                              items: saleInvoice.items || []
+                            });
+                            // Trigger print after a short delay to ensure state is updated
+                            setTimeout(() => handlePrint('single'), 100);
+                          }}
+                          className="text-green-600 hover:text-green-900"
+                        >
+                          Print
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {saleInvoices.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No sales records found
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </Layout>
   );

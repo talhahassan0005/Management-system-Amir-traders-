@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo } from 'react';
 import { Eye, MoreHorizontal, X } from 'lucide-react';
 
 interface Order {
@@ -147,7 +147,7 @@ const OrderRow = memo(({
                     </div>
                     <div class="detail-row total">
                       <span class="label">Total Amount:</span>
-                      <span class="value">$${order.total.toFixed(2)}</span>
+                      <span class="value">PKR ${order.total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ const OrderRow = memo(({
         {order.customer}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${order.total.toFixed(2)}
+        PKR ${order.total.toFixed(2)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
@@ -398,7 +398,7 @@ function RecentOrders() {
               </div>
               <div className="flex justify-between">
                 <span className="font-medium text-gray-700">Total:</span>
-                <span className="text-gray-900 font-semibold">${selectedOrderData.total.toFixed(2)}</span>
+                <span className="text-gray-900 font-semibold">PKR ${selectedOrderData.total.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="font-medium text-gray-700">Status:</span>

@@ -16,7 +16,7 @@ const CHART_DATA = [
 
 // Memoized tooltip formatter
 const formatTooltipValue = (value: number, name: string) => [
-  name === 'sales' ? `$${value}` : value,
+  name === 'sales' ? `PKR ${value}` : value,
   name === 'sales' ? 'Sales' : 'Orders'
 ];
 
@@ -69,7 +69,7 @@ function SalesChart() {
             <YAxis 
               stroke="#6b7280"
               fontSize={12}
-              tickFormatter={(value) => `$${value}`}
+              tickFormatter={(value) => `PKR ${value}`}
             />
             <Tooltip 
               contentStyle={tooltipContentStyle}
@@ -84,7 +84,7 @@ function SalesChart() {
       <div className="flex items-center justify-center space-x-6 mt-4">
         <div className="flex items-center">
           <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-          <span className="text-sm text-gray-600">Sales ($)</span>
+          <span className="text-sm text-gray-600">Sales (PKR)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>

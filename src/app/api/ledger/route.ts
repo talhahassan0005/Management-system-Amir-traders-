@@ -38,12 +38,20 @@ export async function GET(request: NextRequest) {
     // If single party, filter invoices by party too
     if (!isAll && partyType === 'Customer') {
       const cust = await Customer.findById(partyId).lean();
-      if (cust?.description) invQuery.customer = cust.description;
+      if ((cust as any)?.person) {
+        invQuery.customer = (cust as any).person;
+      } else if ((cust as any)?.description) {
+        invQuery.customer = (cust as any).description;
+      }
     }
     if (!isAll && partyType === 'Supplier') {
       const sup = await Supplier.findById(partyId).lean();
-      if (sup?.description) piQuery.supplier = sup.description;
-      if (sup?.code && !piQuery.supplier) piQuery.supplier = sup.code;
+      if ((sup as any)?.person) {
+        piQuery.supplier = (sup as any).person;
+      } else if ((sup as any)?.description) {
+        piQuery.supplier = (sup as any).description;
+      }
+      if ((sup as any)?.code && !piQuery.supplier) piQuery.supplier = (sup as any).code;
     }
     const [payments, receipts, saleInvoices, purchaseInvoices] = await Promise.all([
       Payment.find(payQuery).sort({ date: 1 }),
@@ -308,6 +316,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ledger });
   } catch (error) {
     console.error('Error building ledger:', error);
-    return NextResponse.json({ error: 'Failed to build ledger: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to build ledger: ' + (error as any)?.message || 'Unknown error' }, { status: 500 });
   }
 }
