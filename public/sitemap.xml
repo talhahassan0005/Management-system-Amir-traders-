@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:mobile="http://www.google.com/schemas/sitemap-mobile/1.0" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+<url><loc>https://your-domain.vercel.app/robots.txt</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/cheque-report</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/customer</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/product</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/due-cheque</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/orders</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/production</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/ledger-report</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/db-status</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/receipt-cheque</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/receipt</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/purchase</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/sale</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/settings</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/stock-lookup</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/stock-report</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/store</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/supplier</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/store-stock</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/users</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/paid-cheque</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/reports</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app/payment</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://your-domain.vercel.app</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>1</priority></url>
+<url><loc>https://your-domain.vercel.app/products</loc><lastmod>2025-09-17T20:45:19.392Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+</urlset>
