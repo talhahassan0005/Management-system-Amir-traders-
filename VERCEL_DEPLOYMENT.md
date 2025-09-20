@@ -1,4 +1,4 @@
-# Vercel Deployment Guide for Management System
+# Vercel Deployment Guide for Amir Traders
 
 ## 🗄️ Database Setup (MongoDB Atlas)
 
@@ -139,4 +139,4 @@ vercel logs
 - **MongoDB Atlas**: $9/month for M2 cluster
 
 ## 🎉 Success!
-Your management system will be live at: `https://your-app-name.vercel.app`
+Your Amir Traders system will be live at: `https://your-app-name.vercel.app`

@@ -1,4 +1,4 @@
-# Management System
+# Amir Traders
 
 A comprehensive business management system built with Next.js 15, TypeScript, and MongoDB.
 
@@ -191,7 +191,7 @@ For support and questions:
 
 ### v1.0.0
 - Initial release
-- Complete management system
+- Complete business management solution
 - Performance optimizations
 - Error handling
 - Deployment ready

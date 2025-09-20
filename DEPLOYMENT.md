@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide will help you deploy the Management System to Vercel.
+This guide will help you deploy the Amir Traders system to Vercel.
 
 ## Prerequisites
 

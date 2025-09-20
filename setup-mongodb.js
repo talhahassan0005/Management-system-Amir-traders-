@@ -3,8 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 MongoDB Setup Script for Management System');
-console.log('==============================================\n');
+console.log('🚀 MongoDB Setup Script for Amir Traders');
+console.log('=========================================\n');
 
 // Check if .env.local exists
 const envPath = path.join(__dirname, '.env.local');

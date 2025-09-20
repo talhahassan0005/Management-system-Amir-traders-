@@ -9,16 +9,16 @@ export default function Home() {
     <Layout>
       <div className="space-y-6">
         {/* Page Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
+          <h1 className="text-3xl font-bold mb-2">Amir Traders Dashboard</h1>
+          <p className="text-blue-100 text-lg">Welcome back! Here's what's happening with your business today.</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatsCard
             title="Total Revenue"
-            value="$45,231"
+            value="PKR 45,231"
             change="+20.1%"
             changeType="increase"
             icon={DollarSign}

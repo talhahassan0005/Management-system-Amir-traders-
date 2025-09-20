@@ -25,9 +25,14 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Ensure headings and form labels are not gray anywhere */
-h1, h2, h3, h4, h5, h6, label {
+/* Ensure headings and form labels are not gray anywhere, except for sidebar header */
+h2, h3, h4, h5, h6, label {
   color: #111827 !important; /* gray-900 */
+}
+
+/* Allow sidebar header to have custom colors */
+.sidebar-header h1 {
+  color: inherit !important;
 }
 
 /* Input text color */

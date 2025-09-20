@@ -1,0 +1,42 @@
+<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="60" rx="8" fill="url(#gradient)" />
+  
+  <!-- Gradient Definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <dropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Logo Icon - Stylized "A" with Trading Arrow -->
+  <g transform="translate(15, 15)">
+    <!-- Main "A" Shape -->
+    <path d="M15 30 L22.5 10 L30 30 Z" fill="none" stroke="white" stroke-width="3" stroke-linejoin="round"/>
+    <line x1="18.75" y1="22.5" x2="26.25" y2="22.5" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    
+    <!-- Trading Arrow Accent -->
+    <path d="M32 15 L38 12 L38 18 Z" fill="#fbbf24" />
+    <line x1="25" y1="15" x2="35" y2="15" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Company Name -->
+  <text x="60" y="25" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">
+    AMIR
+  </text>
+  <text x="60" y="42" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">
+    TRADERS
+  </text>
+  
+  <!-- Tagline -->
+  <text x="140" y="30" font-family="Arial, sans-serif" font-size="9" fill="#e5e7eb" opacity="0.8">
+    Business Solutions
+  </text>
+  <text x="140" y="42" font-family="Arial, sans-serif" font-size="9" fill="#e5e7eb" opacity="0.8">
+    Since 2024
+  </text>
+</svg>

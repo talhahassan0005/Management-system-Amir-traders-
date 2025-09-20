@@ -147,7 +147,7 @@ const OrderRow = memo(({
                     </div>
                     <div class="detail-row total">
                       <span class="label">Total Amount:</span>
-                      <span class="value">$${order.total.toFixed(2)}</span>
+                      <span class="value">PKR ${order.total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ const OrderRow = memo(({
         {order.customer}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${order.total.toFixed(2)}
+        PKR {order.total.toFixed(2)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
@@ -297,21 +297,39 @@ function RecentOrders() {
   const fetchRecentOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/sale-invoices?limit=5');
+      console.log('Fetching recent orders...');
+      const response = await fetch('/api/sale-invoices?limit=5&sort=-date');
       const data = await response.json();
+      
+      console.log('API Response:', response.ok, data);
       
       if (response.ok) {
         const ordersData = (data.invoices || []).map((invoice: any) => ({
           _id: invoice._id,
-          invoiceNumber: invoice.invoiceNumber,
-          customer: invoice.customer,
-          total: invoice.netAmount || 0,
-          status: 'delivered',
-          date: invoice.date
+          invoiceNumber: invoice.invoiceNumber || 'N/A',
+          customer: invoice.customer || 'Unknown Customer',
+          total: invoice.netAmount || invoice.totalAmount || 0,
+          status: invoice.status || 'delivered',
+          date: invoice.date || new Date().toISOString()
         }));
+        console.log('Processed orders:', ordersData);
         setOrders(ordersData);
       } else {
         console.error('Error fetching recent orders:', data.error);
+        // Try fetching from orders API as fallback
+        const fallbackResponse = await fetch('/api/orders?limit=5');
+        const fallbackData = await fallbackResponse.json();
+        if (fallbackResponse.ok) {
+          const ordersData = (fallbackData.orders || []).map((order: any) => ({
+            _id: order._id,
+            invoiceNumber: order.orderNumber || order.invoiceNumber || 'N/A',
+            customer: order.customer || 'Unknown Customer',
+            total: order.totalAmount || order.total || 0,
+            status: order.status || 'delivered',
+            date: order.date || new Date().toISOString()
+          }));
+          setOrders(ordersData);
+        }
       }
     } catch (error) {
       console.error('Error fetching recent orders:', error);
@@ -398,7 +416,7 @@ function RecentOrders() {
               </div>
               <div className="flex justify-between">
                 <span className="font-medium text-gray-700">Total:</span>
-                <span className="text-gray-900 font-semibold">${selectedOrderData.total.toFixed(2)}</span>
+                <span className="text-gray-900 font-semibold">PKR {selectedOrderData.total.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="font-medium text-gray-700">Status:</span>

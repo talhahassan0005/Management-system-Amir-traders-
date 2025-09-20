@@ -20,14 +20,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Management System",
-    template: "%s | Management System"
+    default: "Amir Traders",
+    template: "%s | Amir Traders"
   },
   description: "A comprehensive business management system for orders, inventory, and customer management",
   keywords: ["management", "business", "inventory", "orders", "customers"],
-  authors: [{ name: "Management System" }],
-  creator: "Management System",
-  publisher: "Management System",
+  authors: [{ name: "Amir Traders" }],
+  creator: "Amir Traders",
+  publisher: "Amir Traders",
+  icons: {
+    icon: '/Logo.png',
+    apple: '/Logo.png',
+    shortcut: '/Logo.png',
+  },
   formatDetection: {
     email: false,
     address: false,
@@ -41,13 +46,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: '/',
-    title: 'Management System',
+    title: 'Amir Traders',
     description: 'A comprehensive business management system',
-    siteName: 'Management System',
+    siteName: 'Amir Traders',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Management System',
+    title: 'Amir Traders',
     description: 'A comprehensive business management system',
   },
   robots: {
@@ -86,6 +91,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="icon" href="/Logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/Logo.png" />
       </head>
       <body className="antialiased">
         <ErrorBoundary>
