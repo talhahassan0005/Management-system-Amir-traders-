@@ -88,40 +88,132 @@ export async function GET(request: NextRequest) {
       itemName: r.notes || 'Receipt'
     }));
     
-    // Add sale invoices (debit by default; if paymentType is Credit, record as credit)
+    // Add sale invoices
     if (partyType === 'Customer') {
       saleInvoices.forEach(si => {
-        const isCreditSale = String((si as any).paymentType || '').toLowerCase() === 'credit';
+        const paymentType = String((si as any).paymentType || '').toLowerCase();
+        const isCreditSale = paymentType === 'credit';
+        const isCashSale = paymentType === 'cash';
+        
         if (si.items && si.items.length > 0) {
           si.items.forEach((item: any) => {
             const amount = Number(item.value || 0);
+            
+            if (isCreditSale) {
+              // Credit sale: customer owes money (debit)
+              rows.push({
+                date: si.date,
+                type: 'Sale',
+                voucher: si.invoiceNumber,
+                debit: amount,
+                credit: 0,
+                qty: item.pkt || 0,
+                weight: item.weight || 0,
+                itemName: item.description || '',
+                rate: item.rate || 0,
+                reelNo: item.reelNo || ''
+              });
+            } else if (isCashSale) {
+              // Cash sale: add both sale (debit) and payment received (credit) to balance out
+              rows.push({
+                date: si.date,
+                type: 'Sale',
+                voucher: si.invoiceNumber,
+                debit: amount,
+                credit: 0,
+                qty: item.pkt || 0,
+                weight: item.weight || 0,
+                itemName: item.description || '',
+                rate: item.rate || 0,
+                reelNo: item.reelNo || ''
+              });
+              rows.push({
+                date: si.date,
+                type: 'Payment',
+                voucher: si.invoiceNumber + '-CASH',
+                debit: 0,
+                credit: amount,
+                qty: 0,
+                weight: 0,
+                itemName: 'Cash Payment',
+                rate: 0,
+                reelNo: ''
+              });
+            } else {
+              // Default behavior for other payment types
+              rows.push({
+                date: si.date,
+                type: 'Sale',
+                voucher: si.invoiceNumber,
+                debit: amount,
+                credit: 0,
+                qty: item.pkt || 0,
+                weight: item.weight || 0,
+                itemName: item.description || '',
+                rate: item.rate || 0,
+                reelNo: item.reelNo || ''
+              });
+            }
+          });
+        } else {
+          // If no items, add the invoice total as a single entry
+          const totalAmount = si.netAmount || si.totalAmount || 0;
+          
+          if (isCreditSale) {
+            // Credit sale: customer owes money (debit)
             rows.push({
               date: si.date,
               type: 'Sale',
               voucher: si.invoiceNumber,
-              debit: isCreditSale ? 0 : amount,
-              credit: isCreditSale ? amount : 0,
-              qty: item.pkt || 0,
-              weight: item.weight || 0,
-              itemName: item.description || '',
-              rate: item.rate || 0,
-              reelNo: item.reelNo || ''
+              debit: totalAmount,
+              credit: 0,
+              qty: 0,
+              weight: si.totalWeight || 0,
+              itemName: 'Sale Invoice',
+              rate: 0,
+              reelNo: ''
             });
-          });
-        } else {
-          // If no items, add the invoice total as a single entry
-          rows.push({
-            date: si.date,
-            type: 'Sale',
-            voucher: si.invoiceNumber,
-            debit: isCreditSale ? 0 : (si.netAmount || si.totalAmount || 0),
-            credit: isCreditSale ? (si.netAmount || si.totalAmount || 0) : 0,
-            qty: 0,
-            weight: si.totalWeight || 0,
-            itemName: 'Sale Invoice',
-            rate: 0,
-            reelNo: ''
-          });
+          } else if (isCashSale) {
+            // Cash sale: add both sale (debit) and payment received (credit) to balance out
+            rows.push({
+              date: si.date,
+              type: 'Sale',
+              voucher: si.invoiceNumber,
+              debit: totalAmount,
+              credit: 0,
+              qty: 0,
+              weight: si.totalWeight || 0,
+              itemName: 'Sale Invoice',
+              rate: 0,
+              reelNo: ''
+            });
+            rows.push({
+              date: si.date,
+              type: 'Payment',
+              voucher: si.invoiceNumber + '-CASH',
+              debit: 0,
+              credit: totalAmount,
+              qty: 0,
+              weight: 0,
+              itemName: 'Cash Payment',
+              rate: 0,
+              reelNo: ''
+            });
+          } else {
+            // Default behavior for other payment types
+            rows.push({
+              date: si.date,
+              type: 'Sale',
+              voucher: si.invoiceNumber,
+              debit: totalAmount,
+              credit: 0,
+              qty: 0,
+              weight: si.totalWeight || 0,
+              itemName: 'Sale Invoice',
+              rate: 0,
+              reelNo: ''
+            });
+          }
         }
       });
     }
