@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import PurchaseInvoice from '@/models/PurchaseInvoice';
 import SaleInvoice from '@/models/SaleInvoice';
+import Supplier from '@/models/Supplier';
 
 export async function GET() {
   try {
@@ -37,6 +38,9 @@ export async function GET() {
 
     console.log(`📦 Found ${purchaseBySupplier.length} suppliers with purchases:`, 
       purchaseBySupplier.map(s => ({ supplier: s._id, purchases: s.totalPurchases })));
+
+    // Get all supplier documents for name mapping
+    const allSuppliers = await Supplier.find().lean();
 
     // Flatten products array
     const suppliersWithProducts = purchaseBySupplier.map(supplier => ({
@@ -82,8 +86,18 @@ export async function GET() {
         const profit = salesAmount - purchases;
         const profitMargin = purchases > 0 ? ((profit / purchases) * 100) : 0;
 
+        // Find the supplier document to get contact person name
+        const supplierDoc = allSuppliers.find((s: any) => 
+          s.person === supplier._id || 
+          s.description === supplier._id || 
+          s.code === supplier._id
+        );
+
+        const displayName = supplierDoc?.person || supplier._id;
+
         return {
-          supplier: supplier._id, // This is the actual supplier name
+          supplier: displayName, // Show contact person name instead of description
+          originalSupplier: supplier._id, // Keep original for debugging
           totalPurchases: purchases,
           totalSales: salesAmount,
           profit: profit,
