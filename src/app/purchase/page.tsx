@@ -41,7 +41,13 @@ interface PurchaseInvoice {
   paymentMode?: 'Cash' | 'Bank' | 'Cheque';
 }
 
-interface Option { _id: string; label: string; code?: string }
+interface Option { 
+  _id: string; 
+  label: string; 
+  code?: string;
+  person?: string;
+  description?: string;
+}
 
 export default function PurchasePage() {
   const [invoices, setInvoices] = useState<PurchaseInvoice[]>([]);
@@ -98,7 +104,13 @@ export default function PurchasePage() {
         ]);
         const [pData, sData, stData] = await Promise.all([pRes.json(), sRes.json(), stRes.json()]);
         if (pRes.ok) setProducts(pData.products || []);
-        if (sRes.ok) setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.person || s.description, code: s.code })));
+        if (sRes.ok) setSuppliers((sData.suppliers || []).map((s: any) => ({ 
+          _id: s._id, 
+          label: s.person ? `${s.person} (${s.description})` : s.description,
+          person: s.person,
+          description: s.description,
+          code: s.code 
+        })));
         if (stRes.ok) setStores(stData.stores || []);
       } catch (e) {
         console.error('Error loading products/suppliers:', e);
@@ -446,6 +458,20 @@ export default function PurchasePage() {
                       title="Supplier Code"
                     />
                   </div>
+                  {selectedSupplier?.person && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-blue-700">Contact Person:</span>
+                        <span className="text-sm text-blue-600">{selectedSupplier.person}</span>
+                      </div>
+                      {selectedSupplier.description && selectedSupplier.person !== selectedSupplier.description && (
+                        <div className="flex items-center space-x-2 mt-1">
+                          <span className="text-sm font-medium text-blue-700">Company:</span>
+                          <span className="text-sm text-blue-600">{selectedSupplier.description}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

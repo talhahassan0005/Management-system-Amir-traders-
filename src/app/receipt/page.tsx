@@ -50,7 +50,7 @@ export default function ReceiptPage() {
       ]);
       const [cData, sData] = await Promise.all([cRes.json(), sRes.json()]);
       setCustomers((cData.customers || []).map((c: any) => ({ _id: c._id, label: c.description })));
-      setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.description })));
+      setSuppliers((sData.suppliers || []).map((s: any) => ({ _id: s._id, label: s.person ? `${s.person} (${s.description})` : s.description })));
     } catch (e) {
       console.error('Failed to load parties', e);
     }

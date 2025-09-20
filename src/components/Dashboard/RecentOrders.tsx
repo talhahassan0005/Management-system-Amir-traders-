@@ -290,6 +290,7 @@ OrderRow.displayName = 'OrderRow';
 function RecentOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
 
@@ -297,6 +298,7 @@ function RecentOrders() {
   const fetchRecentOrders = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       console.log('Fetching recent orders...');
       const response = await fetch('/api/sale-invoices?limit=5&sort=-date');
       const data = await response.json();
@@ -316,23 +318,30 @@ function RecentOrders() {
         setOrders(ordersData);
       } else {
         console.error('Error fetching recent orders:', data.error);
+        setError(`API Error: ${data.error || 'Unknown error'}`);
         // Try fetching from orders API as fallback
-        const fallbackResponse = await fetch('/api/orders?limit=5');
-        const fallbackData = await fallbackResponse.json();
-        if (fallbackResponse.ok) {
-          const ordersData = (fallbackData.orders || []).map((order: any) => ({
-            _id: order._id,
-            invoiceNumber: order.orderNumber || order.invoiceNumber || 'N/A',
-            customer: order.customer || 'Unknown Customer',
-            total: order.totalAmount || order.total || 0,
-            status: order.status || 'delivered',
-            date: order.date || new Date().toISOString()
-          }));
-          setOrders(ordersData);
+        try {
+          const fallbackResponse = await fetch('/api/orders?limit=5');
+          const fallbackData = await fallbackResponse.json();
+          if (fallbackResponse.ok) {
+            const ordersData = (fallbackData.orders || []).map((order: any) => ({
+              _id: order._id,
+              invoiceNumber: order.orderNumber || order.invoiceNumber || 'N/A',
+              customer: order.customer || 'Unknown Customer',
+              total: order.totalAmount || order.total || 0,
+              status: order.status || 'delivered',
+              date: order.date || new Date().toISOString()
+            }));
+            setOrders(ordersData);
+            setError(null);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback API also failed:', fallbackError);
         }
       }
     } catch (error) {
       console.error('Error fetching recent orders:', error);
+      setError(`Network Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -484,10 +493,35 @@ function RecentOrders() {
                   </div>
                 </td>
               </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center">
+                  <div className="text-red-500">
+                    <div className="text-lg mb-2">Error Loading Orders</div>
+                    <div className="text-sm">{error}</div>
+                    <button 
+                      onClick={fetchRecentOrders}
+                      className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </td>
+              </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                  No orders found
+                <td colSpan={6} className="px-6 py-8 text-center">
+                  <div className="text-gray-500">
+                    <div className="text-lg mb-2">No recent orders found</div>
+                    <div className="text-sm">
+                      <p>It looks like there are no sale invoices yet.</p>
+                      <p className="mt-2">
+                        <a href="/sale" className="text-blue-600 hover:text-blue-800 underline">
+                          Create your first sale invoice
+                        </a>
+                      </p>
+                    </div>
+                  </div>
                 </td>
               </tr>
             ) : (

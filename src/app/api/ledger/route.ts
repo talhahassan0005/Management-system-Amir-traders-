@@ -46,12 +46,26 @@ export async function GET(request: NextRequest) {
     }
     if (!isAll && partyType === 'Supplier') {
       const sup = await Supplier.findById(partyId).lean();
-      if ((sup as any)?.person) {
-        piQuery.supplier = (sup as any).person;
-      } else if ((sup as any)?.description) {
-        piQuery.supplier = (sup as any).description;
+      if (sup) {
+        console.log('Found supplier document:', sup);
+        // Try to match by multiple fields: person, description, or code
+        const matchCriteria = [];
+        if ((sup as any)?.person) matchCriteria.push((sup as any).person);
+        if ((sup as any)?.description) matchCriteria.push((sup as any).description);
+        if ((sup as any)?.code) matchCriteria.push((sup as any).code);
+        
+        if (matchCriteria.length > 0) {
+          piQuery.supplier = { $in: matchCriteria };
+          console.log('Supplier match criteria:', matchCriteria);
+        } else {
+          // If no matching fields, search by the supplier ID itself as a string
+          piQuery.supplier = partyId;
+        }
+      } else {
+        console.log('Supplier not found, using partyId directly:', partyId);
+        // If supplier document not found, try the partyId directly
+        piQuery.supplier = partyId;
       }
-      if ((sup as any)?.code && !piQuery.supplier) piQuery.supplier = (sup as any).code;
     }
     const [payments, receipts, saleInvoices, purchaseInvoices] = await Promise.all([
       Payment.find(payQuery).sort({ date: 1 }),
@@ -59,6 +73,19 @@ export async function GET(request: NextRequest) {
       SaleInvoice.find(partyType === 'Customer' ? invQuery : { _id: null }).sort({ date: 1 }),
       PurchaseInvoice.find(partyType === 'Supplier' ? piQuery : { _id: null }).sort({ date: 1 }),
     ]);
+
+    console.log('Ledger query results:');
+    console.log('- Purchase query:', JSON.stringify(piQuery));
+    console.log('- Purchase invoices found:', purchaseInvoices.length);
+    console.log('- Payments found:', payments.length);
+    console.log('- Receipts found:', receipts.length);
+    if (purchaseInvoices.length > 0) {
+      console.log('- Sample purchase invoice:', {
+        invoiceNumber: purchaseInvoices[0].invoiceNumber,
+        supplier: purchaseInvoices[0].supplier,
+        totalAmount: purchaseInvoices[0].totalAmount
+      });
+    }
 
     type Row = { 
       date: Date; 
