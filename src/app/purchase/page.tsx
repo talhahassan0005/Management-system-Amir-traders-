@@ -51,7 +51,7 @@ interface Option {
 
 export default function PurchasePage() {
   const [invoices, setInvoices] = useState<PurchaseInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<PurchaseInvoice | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -60,6 +60,8 @@ export default function PurchasePage() {
   const [suppliers, setSuppliers] = useState<Option[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Option | null>(null);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const [form, setForm] = useState<PurchaseInvoice>({
     date: new Date().toISOString().slice(0, 10),
@@ -78,7 +80,17 @@ export default function PurchasePage() {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/purchase-invoices');
+      let url = '/api/purchase-invoices';
+      const params = new URLSearchParams();
+      
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
         setInvoices(data.invoices || []);
@@ -93,8 +105,7 @@ export default function PurchasePage() {
   };
 
   useEffect(() => {
-    fetchInvoices();
-    // Load products and suppliers for dropdowns
+    // Load products and suppliers for dropdowns only - don't auto-load invoices
     (async () => {
       try {
         const [pRes, sRes, stRes] = await Promise.all([
@@ -376,9 +387,61 @@ export default function PurchasePage() {
             <h1 className="text-2xl font-bold text-gray-900">Purchase Invoice</h1>
             <p className="text-gray-600">Manage purchase invoices and supplier transactions</p>
           </div>
-          <button onClick={()=>window.print()} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2">
-            <span>Print</span>
-          </button>
+        </div>
+
+        {/* Filter Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+              <input 
+                type="date" 
+                value={fromDate} 
+                onChange={(e) => setFromDate(e.target.value)} 
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+              <input 
+                type="date" 
+                value={toDate} 
+                onChange={(e) => setToDate(e.target.value)} 
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+              />
+            </div>
+            <div className="flex items-end">
+              <button 
+                onClick={fetchInvoices} 
+                disabled={loading}
+                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading...
+                  </>
+                ) : (
+                  'Apply'
+                )}
+              </button>
+            </div>
+            <div className="flex items-end">
+              <button 
+                onClick={() => {
+                  setFromDate('');
+                  setToDate('');
+                  fetchInvoices();
+                }} 
+                className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6">

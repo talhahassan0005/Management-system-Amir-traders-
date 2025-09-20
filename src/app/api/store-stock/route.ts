@@ -182,6 +182,12 @@ export async function GET(request: NextRequest) {
         purchasedWeight: r.purchasedWeight || 0,
         soldWeight: r.soldWeight || 0,
         currentWeight,
+        // Add pricing and stock level information from Product model
+        salePriceQt: p.salePriceQt || 0,
+        salePriceKg: p.salePriceKg || 0,
+        costRateQty: p.costRateQty || 0,
+        minStockLevel: p.minStockLevel || 0,
+        maxStockLevel: p.maxStockLevel || 0,
       };
     }).sort((a, b) => a.store.localeCompare(b.store) || a.itemCode.localeCompare(b.itemCode));
 

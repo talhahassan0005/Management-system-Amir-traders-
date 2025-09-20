@@ -46,8 +46,8 @@ export default function StockLookupPage() {
       // Map API rows to StockItem[] shape
       const mapped: StockItem[] = rows.map((r: any) => {
         const currentQty = Number(r.currentQty || 0);
-        const status: StockItem['status'] = currentQty <= 0 ? 'Out of Stock' : (currentQty <= 10 ? 'Low Stock' : 'In Stock');
-        const unitPrice = Number(r.unitPrice || 0); // if available later
+        const status: StockItem['status'] = currentQty <= 0 ? 'Out of Stock' : (currentQty <= (r.minStockLevel || 10) ? 'Low Stock' : 'In Stock');
+        const unitPrice = Number(r.salePriceQt || r.costRateQty || 0); // Use sale price or cost rate
         const totalValue = unitPrice * currentQty;
         return {
           _id: `${r.store || ''}:${r.itemCode || ''}`,
@@ -56,8 +56,8 @@ export default function StockLookupPage() {
           brand: r.brand || '',
           category: r.type || '',
           currentStock: currentQty,
-          minStock: Number(r.minStock || 0),
-          maxStock: Number(r.maxStock || 0),
+          minStock: Number(r.minStockLevel || 0),
+          maxStock: Number(r.maxStockLevel || 0),
           unitPrice,
           totalValue,
           lastUpdated: r.lastUpdated || '',
