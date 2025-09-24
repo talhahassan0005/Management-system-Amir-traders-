@@ -148,6 +148,9 @@ export async function GET(request: NextRequest) {
           // Stash computed values temporarily on the record
           (cur as any)._currentQtyFromStock = currentQtyFromStock;
           (cur as any)._currentWeightFromStock = currentWeightFromStock;
+          if (s.reelNo) {
+            (cur as any)._reelNo = String(s.reelNo);
+          }
           byKey.set(key, cur);
         });
       }
@@ -165,13 +168,16 @@ export async function GET(request: NextRequest) {
       // Prefer explicit current from Stock merge if available, otherwise purchases - sales
   const prodOutQty = Number((r as any)._prodOutQty || 0);
   const prodOutWeight = Number((r as any)._prodOutWeight || 0);
-  const currentQty = Number(r.purchasedQty || 0) - Number(r.soldQty || 0) - prodOutQty;
-  const currentWeight = Number(r.purchasedWeight || 0) - Number(r.soldWeight || 0) - prodOutWeight;
+  const computedQty = Number(r.purchasedQty || 0) - Number(r.soldQty || 0) - prodOutQty;
+  const computedWeight = Number(r.purchasedWeight || 0) - Number(r.soldWeight || 0) - prodOutWeight;
+  const currentQty = (r as any)._currentQtyFromStock !== undefined ? Number((r as any)._currentQtyFromStock) : computedQty;
+  const currentWeight = (r as any)._currentWeightFromStock !== undefined ? Number((r as any)._currentWeightFromStock) : computedWeight;
       return {
         store: r.store || '',
         itemCode: r.product || '',
         description: p.description || '',
         brand: p.brand || '',
+        category: p.category || '',
         type: p.type || '',
         length: p.length || 0,
         width: p.width || 0,
@@ -182,6 +188,7 @@ export async function GET(request: NextRequest) {
         purchasedWeight: r.purchasedWeight || 0,
         soldWeight: r.soldWeight || 0,
         currentWeight,
+        reelNo: (r as any)._reelNo || '',
         // Add pricing and stock level information from Product model
         salePriceQt: p.salePriceQt || 0,
         salePriceKg: p.salePriceKg || 0,
@@ -200,10 +207,23 @@ export async function GET(request: NextRequest) {
         itemCode: '-',
         description: '',
         brand: '',
+        category: '',
         type: '',
-        length: 0, width: 0, grams: 0,
-        purchasedQty: 0, soldQty: 0, currentQty: 0,
-        purchasedWeight: 0, soldWeight: 0, currentWeight: 0,
+        length: 0,
+        width: 0,
+        grams: 0,
+        purchasedQty: 0,
+        soldQty: 0,
+        currentQty: 0,
+        purchasedWeight: 0,
+        soldWeight: 0,
+        currentWeight: 0,
+        reelNo: '',
+        salePriceQt: 0,
+        salePriceKg: 0,
+        costRateQty: 0,
+        minStockLevel: 0,
+        maxStockLevel: 0,
       }));
       if (placeholders.length) {
         data = [...data, ...placeholders].sort((a, b) => a.store.localeCompare(b.store) || a.itemCode.localeCompare(b.itemCode));

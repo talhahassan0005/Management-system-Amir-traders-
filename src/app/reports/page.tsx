@@ -71,7 +71,7 @@ export default function ReportsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-3xl font-bold text-gray-900">$85,500</p>
+                <p className="text-3xl font-bold text-gray-900">PKR 85,500</p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                   <span className="text-sm text-green-600">+12.5%</span>
@@ -97,7 +97,7 @@ export default function ReportsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Average Order Value</p>
-                <p className="text-3xl font-bold text-gray-900">$69.30</p>
+                <p className="text-3xl font-bold text-gray-900">PKR 69.30</p>
                 <div className="flex items-center mt-2">
                   <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
                   <span className="text-sm text-red-600">-2.1%</span>
@@ -134,7 +134,7 @@ export default function ReportsPage() {
                 <BarChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                  <YAxis stroke="#6b7280" fontSize={12} tickFormatter={(value) => `$${value}`} />
+                  <YAxis stroke="#6b7280" fontSize={12} tickFormatter={(value) => `PKR ${value}`} />
                   <Tooltip 
                     contentStyle={{
                       backgroundColor: 'white',
@@ -143,7 +143,7 @@ export default function ReportsPage() {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                     }}
                     formatter={(value: number, name: string) => [
-                      name === 'sales' ? `$${value}` : value,
+                      name === 'sales' ? `PKR ${value}` : value,
                       name === 'sales' ? 'Sales' : 'Orders'
                     ]}
                   />
@@ -167,7 +167,7 @@ export default function ReportsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={(props: any) => `${props?.name ?? ''} ${(((props?.percent as number) ?? 0) * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -222,7 +222,7 @@ export default function ReportsPage() {
                       {product.sales.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${product.revenue.toLocaleString()}
+                      PKR {product.revenue.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, Bell, Search, User, PlusCircle } from 'lucide-react';
+import { Menu, Bell, User, PlusCircle } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick: () => void;
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery] = useState('');
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 print:hidden">
@@ -23,19 +23,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <Menu className="w-6 h-6" />
           </button>
           
-          {/* Search bar */}
-          <div className="hidden md:block relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-          </div>
+          {/* Search removed as requested */}
 
           {/* Quick create: Store */}
           <Link
@@ -53,6 +41,22 @@ export default function Header({ onMenuClick }: HeaderProps) {
           >
             <PlusCircle className="w-4 h-4 text-emerald-600" />
             <span>Store Stock</span>
+          </Link>
+          <Link
+            href="/storein"
+            className="hidden md:inline-flex items-center gap-1 px-3 py-2 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+            title="Add stock to a store"
+          >
+            <PlusCircle className="w-4 h-4 text-green-600" />
+            <span>Store In</span>
+          </Link>
+          <Link
+            href="/storeout"
+            className="hidden md:inline-flex items-center gap-1 px-3 py-2 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+            title="Reduce stock from a store"
+          >
+            <PlusCircle className="w-4 h-4 text-red-600" />
+            <span>Store Out</span>
           </Link>
         </div>
 

@@ -57,6 +57,8 @@ interface SaleInvoice {
 // Stores will be loaded from API
 
 export default function SaleInvoicePage() {
+  // Search by Invoice # for Sales Records
+  const [saleSearch, setSaleSearch] = useState('');
   const makeInitialInvoice = (): SaleInvoice => ({
     invoiceNumber: 'SI-017596',
     customer: '',
@@ -754,8 +756,8 @@ export default function SaleInvoicePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Length</label>
                     <input
                       type="number"
-                      value={currentItem.length}
-                      onChange={(e) => handleItemInputChange('length', parseInt(e.target.value) || 0)}
+                      value={currentItem.length === 0 ? '' : currentItem.length}
+                      onChange={(e) => handleItemInputChange('length', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     />
                   </div>
@@ -763,8 +765,8 @@ export default function SaleInvoicePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
                     <input
                       type="number"
-                      value={currentItem.width}
-                      onChange={(e) => handleItemInputChange('width', parseInt(e.target.value) || 0)}
+                      value={currentItem.width === 0 ? '' : currentItem.width}
+                      onChange={(e) => handleItemInputChange('width', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     />
                   </div>
@@ -772,8 +774,8 @@ export default function SaleInvoicePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Grams</label>
                     <input
                       type="number"
-                      value={currentItem.grams}
-                      onChange={(e) => handleItemInputChange('grams', parseInt(e.target.value) || 0)}
+                      value={currentItem.grams === 0 ? '' : currentItem.grams}
+                      onChange={(e) => handleItemInputChange('grams', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     />
                   </div>
@@ -790,8 +792,8 @@ export default function SaleInvoicePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Packing</label>
                     <input
                       type="number"
-                      value={currentItem.packing}
-                      onChange={(e) => handleItemInputChange('packing', parseInt(e.target.value) || 0)}
+                      value={currentItem.packing === 0 ? '' : currentItem.packing}
+                      onChange={(e) => handleItemInputChange('packing', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     />
                   </div>
@@ -829,8 +831,8 @@ export default function SaleInvoicePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Pkt</label>
                     <input
                       type="number"
-                      value={currentItem.pkt}
-                      onChange={(e) => handleItemInputChange('pkt', parseInt(e.target.value) || 0)}
+                      value={currentItem.pkt === 0 ? '' : currentItem.pkt}
+                      onChange={(e) => handleItemInputChange('pkt', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                     />
                   </div>
@@ -1101,7 +1103,18 @@ export default function SaleInvoicePage() {
         {/* Sales Records Section */}
         <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales Records</h3>
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h3 className="text-lg font-semibold text-gray-900">Sales Records</h3>
+              <div className="w-64">
+                <input
+                  type="text"
+                  value={saleSearch}
+                  onChange={(e) => setSaleSearch(e.target.value)}
+                  placeholder="Search by Invoice #"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -1124,7 +1137,15 @@ export default function SaleInvoicePage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {saleInvoices.map((saleInvoice: any) => (
+                  {saleInvoices
+                    .filter((si) =>
+                      saleSearch.trim() === ''
+                        ? true
+                        : String(si.invoiceNumber || '')
+                            .toLowerCase()
+                            .includes(saleSearch.trim().toLowerCase())
+                    )
+                    .map((saleInvoice: any) => (
                     <tr key={saleInvoice._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {saleInvoice.invoiceNumber}

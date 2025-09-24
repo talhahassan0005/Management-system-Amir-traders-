@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Package, Plus, Save, Trash2 } from 'lucide-react';
 
@@ -61,14 +61,39 @@ export default function PurchasePage() {
   const [stores, setStores] = useState<any[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Option | null>(null);
   const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [toDate, setToDate] = useState(new Date().toISOString().slice(0,10));
+  const [searchInvoice, setSearchInvoice] = useState<string>('');
+
+  // Global store selector: lock store once per invoice, then allow items entry
+  const [globalStore, setGlobalStore] = useState<string>('');
+  const [storeLocked, setStoreLocked] = useState<boolean>(false);
+
+  // Current Item entry (like Sales page Product Entry grid)
+  const [currentItem, setCurrentItem] = useState<PurchaseItem>({
+    store: '',
+    product: '',
+    qty: 0,
+    weight: 0,
+    stock: 0,
+    baseStock: 0,
+    rate: 0,
+    rateOn: 'Weight',
+    value: 0,
+    description: '',
+    brand: '',
+    width: 0,
+    length: 0,
+    grams: 0,
+    packing: 100,
+    remarks: ''
+  });
 
   const [form, setForm] = useState<PurchaseInvoice>({
     date: new Date().toISOString().slice(0, 10),
     reference: '',
     paymentType: 'Cash',
     supplier: '',
-    items: [{ store: '', product: '', qty: 0, weight: 0 }],
+    items: [],
     totalAmount: 0,
     discount: 0,
     freight: 0,
@@ -129,6 +154,19 @@ export default function PurchasePage() {
     })();
   }, []);
 
+  // Auto-load recent purchases on initial mount with current date filters (To defaults to today)
+  useEffect(() => {
+    fetchInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep currentItem.store in sync when store is locked/unlocked or changes
+  useEffect(() => {
+    if (storeLocked && globalStore) {
+      setCurrentItem((prev) => ({ ...prev, store: globalStore }));
+    }
+  }, [storeLocked, globalStore]);
+
   const computeUnitWeight = (p: any): number => {
     if (!p) return 0;
     const length = Number(p.length || 0);
@@ -142,12 +180,154 @@ export default function PurchasePage() {
     return length * width * grams;
   };
 
+  // Handle changes for the Product Entry grid (currentItem)
+  const handleCurrentItemChange = (field: keyof PurchaseItem, value: string | number) => {
+    setCurrentItem((prev) => {
+      const next = { ...prev, [field]: value } as PurchaseItem;
+      const selectedProduct = products.find((p: any) => p.item === next.product);
+      // If using global locked store, enforce it
+      if (storeLocked && globalStore && next.store !== globalStore) {
+        next.store = globalStore;
+      }
+      if (field === 'product' && selectedProduct) {
+        next.width = Number(selectedProduct.width || 0);
+        next.length = Number(selectedProduct.length || 0);
+        next.brand = selectedProduct.brand || '';
+        next.grams = Number(selectedProduct.grams || 0);
+        next.description = selectedProduct.description || '';
+        if (!next.rateOn) next.rateOn = 'Weight';
+      }
+      // Derived calcs when qty/rate/rateOn/dimensions/weight change
+      if (
+        field === 'product' ||
+        field === 'qty' ||
+        field === 'rate' ||
+        field === 'rateOn' ||
+        field === 'weight' ||
+        field === 'width' ||
+        field === 'length' ||
+        field === 'grams'
+      ) {
+        const baseProduct = selectedProduct || products.find((p: any) => p.item === next.product);
+        const lengthEff = Number((next.length ?? baseProduct?.length) || 0);
+        const widthEff = Number((next.width ?? baseProduct?.width) || 0);
+        const gramsEff = Number((next.grams ?? baseProduct?.grams) || 0);
+        const typeEff = String(baseProduct?.type || '').toLowerCase();
+        const unit =
+          lengthEff > 0 && widthEff > 0 && gramsEff > 0
+            ? typeEff === 'board'
+              ? (lengthEff * widthEff * gramsEff) / 15500
+              : lengthEff * widthEff * gramsEff
+            : 0;
+        const qty = Number(next.qty || 0);
+        let weight = Number(next.weight || 0);
+        if (field !== 'weight') {
+          weight = +(qty * unit).toFixed(4);
+          if (!Number.isNaN(weight)) next.weight = weight;
+        }
+        const rate = Number(next.rate || 0);
+        const basis = next.rateOn || 'Weight';
+        const valueCalc = basis === 'Quantity' ? rate * qty : rate * (next.weight || 0);
+        next.value = +(+valueCalc).toFixed(2);
+      }
+      return next;
+    });
+
+    // Fetch stock when store or product change
+    if (field === 'store' || field === 'product') {
+      const storeRaw = field === 'store' ? String(value) : String(currentItem.store || '');
+      const productRaw = field === 'product' ? String(value) : String(currentItem.product || '');
+      const store = (storeLocked ? globalStore : storeRaw).trim().toUpperCase();
+      const product = productRaw.trim();
+      if (store && product) {
+        (async () => {
+          try {
+            let res = await fetch(`/api/store-stock?store=${encodeURIComponent(store)}`);
+            let data = await res.json();
+            let current = 0;
+            if (res.ok && Array.isArray(data.data)) {
+              const row = data.data.find(
+                (r: any) => String(r.itemCode).trim().toUpperCase() === product.toUpperCase()
+              );
+              current = Number(row?.currentQty || 0);
+            }
+            if (!Number.isFinite(current) || current === 0) {
+              res = await fetch(`/api/store-stock`);
+              data = await res.json();
+              if (res.ok && Array.isArray(data.data)) {
+                const row = data.data.find(
+                  (r: any) =>
+                    String(r.store).trim().toUpperCase() === store &&
+                    String(r.itemCode).trim().toUpperCase() === product.toUpperCase()
+                );
+                current = Number(row?.currentQty || 0);
+              }
+            }
+            setCurrentItem((prev) => ({ ...prev, baseStock: current, stock: Number(current) + Number(prev.qty || 0) }));
+          } catch {}
+        })();
+      }
+    }
+  };
+
+  const addCurrentItemToGrid = () => {
+    const item = currentItem;
+    if (!item.product) return; // require only product (like Sales)
+    setForm((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          store: storeLocked ? globalStore || item.store : item.store,
+          product: item.product,
+          qty: Number(item.qty || 0),
+          weight: Number(item.weight || 0),
+          stock: item.stock,
+          baseStock: item.baseStock,
+          rate: item.rate,
+          rateOn: item.rateOn,
+          value: item.value,
+          description: item.description,
+          brand: item.brand,
+          width: item.width,
+          length: item.length,
+          grams: item.grams,
+          packing: item.packing,
+          remarks: item.remarks,
+        },
+      ],
+    }));
+    // reset entry but keep locked store
+    setCurrentItem({
+      store: storeLocked ? globalStore : '',
+      product: '',
+      qty: 0,
+      weight: 0,
+      stock: 0,
+      baseStock: 0,
+      rate: 0,
+      rateOn: 'Weight',
+      value: 0,
+      description: '',
+      brand: '',
+      width: 0,
+      length: 0,
+      grams: 0,
+      packing: 100,
+      remarks: ''
+    });
+  };
+
   const handleItemChange = (index: number, field: keyof PurchaseItem, value: string | number) => {
     setForm((prev) => {
       const items = [...prev.items];
       const next = { ...items[index], [field]: value } as PurchaseItem;
       // When product changes, capture dimensions for downstream calcs
         const selectedProduct = products.find((p: any) => p.item === next.product);
+      // If using global locked store, ensure item.store mirrors it
+      if (storeLocked && globalStore && next.store !== globalStore) {
+        next.store = globalStore;
+      }
       if (field === 'product' && selectedProduct) {
         next.width = Number(selectedProduct.width || 0);
         next.length = Number(selectedProduct.length || 0);
@@ -157,9 +337,16 @@ export default function PurchasePage() {
         // Default rate basis
         if (!next.rateOn) next.rateOn = 'Weight';
       }
-      // Always recompute derived fields when product/qty/rate/rateOn change
+      // Always recompute derived fields when product/qty/rate/rateOn or dimensions change
       if (field === 'product' || field === 'qty' || field === 'rate' || field === 'rateOn' || field === 'weight' || field === 'width' || field === 'length' || field === 'grams') {
-        const unit = computeUnitWeight(selectedProduct || products.find((p:any)=>p.item===next.product));
+        const baseProduct = selectedProduct || products.find((p:any)=>p.item===next.product);
+        const lengthEff = Number((next.length ?? baseProduct?.length) || 0);
+        const widthEff  = Number((next.width  ?? baseProduct?.width)  || 0);
+        const gramsEff  = Number((next.grams  ?? baseProduct?.grams)  || 0);
+        const typeEff   = String(baseProduct?.type || '').toLowerCase();
+        const unit = (lengthEff>0 && widthEff>0 && gramsEff>0)
+          ? (typeEff === 'board' ? (lengthEff * widthEff * gramsEff) / 15500 : (lengthEff * widthEff * gramsEff))
+          : 0;
         const qty = Number(next.qty || 0);
         let weight = Number(next.weight || 0);
         if (field !== 'weight') {
@@ -182,7 +369,7 @@ export default function PurchasePage() {
     if (field === 'store' || field === 'product') {
       const storeRaw = field === 'store' ? String(value) : String(form.items[index]?.store || '');
       const productRaw = field === 'product' ? String(value) : String(form.items[index]?.product || '');
-      const store = storeRaw.trim().toUpperCase();
+      const store = (storeLocked ? globalStore : storeRaw).trim().toUpperCase();
       const product = productRaw.trim();
       if (store && product) {
         (async () => {
@@ -224,7 +411,7 @@ export default function PurchasePage() {
   };
 
   const addItem = () => {
-    setForm((prev) => ({ ...prev, items: [...prev.items, { store: '', product: '', qty: 0, weight: 0, packing: 100 }] }));
+    setForm((prev) => ({ ...prev, items: [...prev.items, { store: globalStore || '', product: '', qty: 0, weight: 0, packing: 100 }] }));
   };
 
   const removeItem = (index: number) => {
@@ -250,7 +437,7 @@ export default function PurchasePage() {
       reference: '',
       paymentType: 'Cash',
       supplier: '',
-      items: [{ store: '', product: '', qty: 0, weight: 0 }],
+      items: [],
       totalAmount: 0,
       discount: 0,
       freight: 0,
@@ -259,6 +446,9 @@ export default function PurchasePage() {
       paymentMode: 'Cash',
     });
     setSelectedSupplier(null);
+    // unlock store for next entry
+    setGlobalStore('');
+    setStoreLocked(false);
   };
 
   const saveInvoice = async () => {
@@ -352,7 +542,7 @@ export default function PurchasePage() {
       reference: inv.reference || '',
       paymentType: inv.paymentType,
       supplier: inv.supplier || '',
-      items: inv.items?.length ? inv.items : [{ store: '', product: '', qty: 0, weight: 0 }],
+      items: inv.items?.length ? inv.items : [],
       totalAmount: inv.totalAmount || 0,
       discount: inv.discount || 0,
       freight: inv.freight || 0,
@@ -379,6 +569,13 @@ export default function PurchasePage() {
     }
   };
 
+  // Filtered view for Recent Purchases by Invoice # (client-side)
+  const filteredInvoices = useMemo(() => {
+    const q = (searchInvoice || '').trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((inv) => String(inv.invoiceNumber || '').toLowerCase().includes(q));
+  }, [invoices, searchInvoice]);
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -389,60 +586,7 @@ export default function PurchasePage() {
           </div>
         </div>
 
-        {/* Filter Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-              <input 
-                type="date" 
-                value={fromDate} 
-                onChange={(e) => setFromDate(e.target.value)} 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-              <input 
-                type="date" 
-                value={toDate} 
-                onChange={(e) => setToDate(e.target.value)} 
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-              />
-            </div>
-            <div className="flex items-end">
-              <button 
-                onClick={fetchInvoices} 
-                disabled={loading}
-                className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Loading...
-                  </>
-                ) : (
-                  'Apply'
-                )}
-              </button>
-            </div>
-            <div className="flex items-end">
-              <button 
-                onClick={() => {
-                  setFromDate('');
-                  setToDate('');
-                  fetchInvoices();
-                }} 
-                className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
+        
 
         <div className="grid grid-cols-1 gap-6">
           <div>
@@ -466,6 +610,52 @@ export default function PurchasePage() {
                     onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} 
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md" 
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">Store (lock for items)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={globalStore}
+                      onChange={(e) => setGlobalStore(e.target.value)}
+                      disabled={storeLocked}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                      placeholder="Start typing store..."
+                      list="global-store-list"
+                      autoComplete="off"
+                    />
+                    {!storeLocked ? (
+                      <button
+                        onClick={() => {
+                          setStoreLocked(true);
+                          // Push store to all current rows
+                          if (globalStore) {
+                            setForm((prev) => ({
+                              ...prev,
+                              items: prev.items.map((it) => ({ ...it, store: globalStore }))
+                            }));
+                          }
+                        }}
+                        className="px-3 py-2 bg-blue-600 text-white rounded-lg"
+                        disabled={!globalStore}
+                        title="Lock store for all items"
+                      >Lock</button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setStoreLocked(false);
+                          setGlobalStore('');
+                        }}
+                        className="px-3 py-2 bg-gray-600 text-white rounded-lg"
+                        title="Unlock store"
+                      >Change</button>
+                    )}
+                  </div>
+                  <datalist id="global-store-list">
+                    {stores.map((st: any) => (
+                      <option key={st._id || st.store} value={st.store} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-gray-700">Reference</label>
@@ -539,202 +729,212 @@ export default function PurchasePage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Items</h3>
-                  <button 
-                    onClick={addItem} 
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2 shadow-sm hover:shadow-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Item</span>
-                  </button>
+                {/* Product Entry Grid (same behaviour style as Sales) */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Entry</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
+                      <input
+                        type="text"
+                        value={storeLocked ? globalStore : currentItem.store}
+                        onChange={(e) => handleCurrentItemChange('store', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        placeholder="Start typing store..."
+                        list="entry-store-list"
+                        autoComplete="off"
+                        disabled={storeLocked}
+                      />
+                      {!storeLocked && (
+                        <datalist id="entry-store-list">
+                          {stores.map((st: any) => (
+                            <option key={st._id || st.store} value={st.store} />
+                          ))}
+                        </datalist>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
+                      <select
+                        value={currentItem.product}
+                        onChange={(e) => handleCurrentItemChange('product', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      >
+                        <option value="">Select Product</option>
+                        {products.map((product: any) => (
+                          <option key={product.item} value={product.item}>
+                            {product.item}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Qty</label>
+                      <input
+                        type="number"
+                        value={currentItem.qty === 0 ? '' : currentItem.qty}
+                        onChange={(e) => handleCurrentItemChange('qty', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        min={0}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Weight</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={currentItem.weight === 0 ? '' : currentItem.weight}
+                        onChange={(e) => handleCurrentItemChange('weight', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={currentItem.rate === 0 ? '' : currentItem.rate}
+                        onChange={(e) => handleCurrentItemChange('rate', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate On</label>
+                      <select
+                        value={currentItem.rateOn || 'Weight'}
+                        onChange={(e) => handleCurrentItemChange('rateOn', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      >
+                        <option value="Weight">Weight</option>
+                        <option value="Quantity">Quantity</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={currentItem.value === 0 ? '' : currentItem.value}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Stock</label>
+                      <input
+                        type="number"
+                        value={currentItem.stock === 0 ? '' : currentItem.stock}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Length</label>
+                      <input
+                        type="number"
+                        value={currentItem.length === 0 ? '' : currentItem.length}
+                        onChange={(e) => handleCurrentItemChange('length', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
+                      <input
+                        type="number"
+                        value={currentItem.width === 0 ? '' : currentItem.width}
+                        onChange={(e) => handleCurrentItemChange('width', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Grams</label>
+                      <input
+                        type="number"
+                        value={currentItem.grams === 0 ? '' : currentItem.grams}
+                        onChange={(e) => handleCurrentItemChange('grams', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                      <input
+                        type="text"
+                        value={currentItem.brand || ''}
+                        onChange={(e) => handleCurrentItemChange('brand', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <input
+                        type="text"
+                        value={currentItem.description || ''}
+                        onChange={(e) => handleCurrentItemChange('description', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                      <input
+                        type="text"
+                        value={currentItem.remarks || ''}
+                        onChange={(e) => handleCurrentItemChange('remarks', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex space-x-2 mt-4">
+                    <button
+                      onClick={addCurrentItemToGrid}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Grid</span>
+                    </button>
+                    <button className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors duration-200">
+                      Change Grid
+                    </button>
+                    <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
+                      Remove Grid
+                    </button>
+                  </div>
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Invoice Items</h3>
+                </div>
+                {form.items.length > 0 && (
+                <div className="rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Store</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Product</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Width</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Grams</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Qty</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Stock</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Weight</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Rate</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Rate On</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount</th>
-                        <th className="px-2 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Brand</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Length</th>
-                        <th className="px-2 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Packing</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Remarks</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sr</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {form.items.map((it, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50 transition-colors duration-150">
-                          <td className="px-4 py-3">
-                            <input 
-                              type="text" 
-                              value={it.store} 
-                              onChange={(e) => handleItemChange(idx, 'store', e.target.value)} 
-                              className="w-full min-w-[240px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" 
-                              placeholder="Start typing store..." 
-                              list={`store-list-${idx}`}
-                              autoComplete="off"
-                            />
-                            <datalist id={`store-list-${idx}`}>
-                              {stores.map((st: any) => (
-                                <option key={st._id || st.store} value={st.store} />
-                              ))}
-                            </datalist>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              value={it.product}
-                              onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
-                              className="w-full min-w-[300px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                              placeholder="Start typing product..."
-                              list={`product-list-${idx}`}
-                              autoComplete="off"
-                            />
-                            <datalist id={`product-list-${idx}`}>
-                              {products.map((p: any) => (
-                                <option key={p._id} value={p.item} />
-                              ))}
-                            </datalist>
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              value={it.description || ''}
-                              onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                              placeholder="Description"
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="number"
-                              value={it.width || 0}
-                              onChange={(e) => handleItemChange(idx, 'width', Number(e.target.value) || 0)}
-                              className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right"
-                              min={0}
-                              step="0.01"
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="number"
-                              value={it.grams || 0}
-                              onChange={(e) => handleItemChange(idx, 'grams', Number(e.target.value) || 0)}
-                              className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-right"
-                              min={0}
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input 
-                              type="number" 
-                              value={it.qty} 
-                              onChange={(e) => handleItemChange(idx, 'qty', Number(e.target.value) || 0)} 
-                              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right transition-all duration-200 min-w-[120px]" 
-                              min={0} 
-                              step="1"
-                            />
-                          </td>
-                          <td className="px-2 py-3 text-right min-w-[120px]">
-                            <input
-                              type="number"
-                              value={it.stock ?? 0}
-                              readOnly
-                              className="w-28 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-right"
-                              title="Current stock in selected store after this qty"
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input 
-                              type="number" 
-                              value={it.weight} 
-                              onChange={(e) => handleItemChange(idx, 'weight', Number(e.target.value) || 0)} 
-                              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-right transition-all duration-200 min-w-[140px]" 
-                              min={0} 
-                              step="0.1"
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="number"
-                              value={it.rate || 0}
-                              onChange={(e) => handleItemChange(idx, 'rate', Number(e.target.value) || 0)}
-                              className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right"
-                              step="0.01"
-                              min={0}
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <select
-                              value={it.rateOn || 'Weight'}
-                              onChange={(e) => handleItemChange(idx, 'rateOn', e.target.value)}
-                              className="w-32 px-3 py-2 border border-gray-300 rounded-lg"
+                      {form.items.map((item, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{storeLocked ? globalStore : item.store}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.product}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.description}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.qty}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.weight}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.rate}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.value}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => removeItem(index)}
+                              className="text-red-600 hover:text-red-900"
                             >
-                              <option value="Weight">Weight</option>
-                              <option value="Quantity">Quantity</option>
-                            </select>
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="number"
-                              value={it.value || 0}
-                              readOnly
-                              className="w-36 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-right"
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="text"
-                              value={it.brand || ''}
-                              onChange={(e) => handleItemChange(idx, 'brand', e.target.value)}
-                              className="w-40 px-3 py-2 border border-gray-300 rounded-lg"
-                              placeholder="Brand"
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="number"
-                              value={it.length || 0}
-                              onChange={(e) => handleItemChange(idx, 'length', Number(e.target.value) || 0)}
-                              className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-right"
-                              min={0}
-                              step="0.01"
-                            />
-                          </td>
-                          <td className="px-2 py-3">
-                            <input
-                              type="number"
-                              value={it.packing || 0}
-                              onChange={(e) => handleItemChange(idx, 'packing', Number(e.target.value) || 0)}
-                              className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-right"
-                              min={0}
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="text"
-                              value={it.remarks || ''}
-                              onChange={(e) => handleItemChange(idx, 'remarks', e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              placeholder="Remarks"
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button 
-                              onClick={() => removeItem(idx)} 
-                              className="text-red-600 hover:text-red-800 hover:bg-red-50 p-2 rounded-lg transition-all duration-200"
-                              title="Remove item"
-                            >
-                              <Trash2 className="w-4 h-4" />
+                              Remove
                             </button>
                           </td>
                         </tr>
@@ -742,6 +942,7 @@ export default function PurchasePage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -759,7 +960,7 @@ export default function PurchasePage() {
                       <div className="bg-white/80 p-2 rounded border border-gray-200">
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-gray-700 text-xs">Items Total</span>
-                          <span className="font-bold text-gray-900 text-sm">${totals.itemsTotal.toFixed(2)}</span>
+                          <span className="font-bold text-gray-900 text-sm">PKR {totals.itemsTotal.toFixed(2)}</span>
                         </div>
                       </div>
                       
@@ -767,7 +968,7 @@ export default function PurchasePage() {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-gray-700 text-xs">Discount</span>
                           <div className="relative">
-                            <span className="absolute left-1.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
+                            <span className="absolute left-1.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">PKR</span>
                             <input 
                               type="number" 
                               value={form.discount} 
@@ -785,7 +986,7 @@ export default function PurchasePage() {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-gray-700 text-xs">Freight</span>
                           <div className="relative">
-                            <span className="absolute left-1.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
+                            <span className="absolute left-1.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">PKR</span>
                             <input 
                               type="number" 
                               value={form.freight} 
@@ -802,7 +1003,7 @@ export default function PurchasePage() {
                       <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-2 rounded border border-blue-300">
                         <div className="flex items-center justify-between">
                           <span className="text-blue-800 font-bold text-sm">Net Amount</span>
-                          <span className="text-blue-900 font-black text-base">${totals.netAmount.toFixed(2)}</span>
+                          <span className="text-blue-900 font-black text-base">PKR {totals.netAmount.toFixed(2)}</span>
                         </div>
                         <div className="mt-0.5 text-xs text-blue-600 font-medium">
                           Final amount after adjustments
@@ -825,12 +1026,77 @@ export default function PurchasePage() {
             </div>
           </div>
 
+          {/* Recent Purchases moved to bottom */}
           <div className="mt-8" id="recent-purchases">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-900">Recent Purchases</h3>
                 <div className="bg-blue-100 p-1.5 rounded-full">
                   <Package className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="inline-flex items-end gap-3 mb-4 min-w-max">
+                <div className="w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="w-56">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice #</label>
+                  <input
+                    type="text"
+                    value={searchInvoice}
+                    onChange={(e) => setSearchInvoice(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Search by invoice #"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={fetchInvoices}
+                    disabled={loading}
+                    className="min-w-28 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading...
+                      </>
+                    ) : (
+                      'Apply'
+                    )}
+                  </button>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setFromDate('');
+                      setToDate(new Date().toISOString().slice(0,10));
+                      setSearchInvoice('');
+                      fetchInvoices();
+                    }}
+                    className="min-w-28 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    Clear
+                  </button>
+                </div>
                 </div>
               </div>
               <div className="overflow-x-auto rounded border border-gray-200">
@@ -864,7 +1130,7 @@ export default function PurchasePage() {
                         </td>
                       </tr>
                     ) : (
-                      invoices.map((inv) => (
+                      filteredInvoices.map((inv) => (
                         <tr key={inv._id} className="hover:bg-gray-50 transition-colors duration-150">
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{inv.invoiceNumber || '-'}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.date?.toString()?.slice(0, 10)}</td>
@@ -883,7 +1149,6 @@ export default function PurchasePage() {
                               </button>
                               <button 
                                 onClick={() => {
-                                  // Simple print functionality - opens invoice in new window for printing
                                   const printWindow = window.open('', '_blank');
                                   if (printWindow) {
                                     printWindow.document.write(`

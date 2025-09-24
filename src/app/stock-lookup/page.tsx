@@ -187,7 +187,7 @@ export default function StockLookupPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-lg lg:text-xl font-bold text-gray-900">${totalValue.toFixed(2)}</p>
+                <p className="text-lg lg:text-xl font-bold text-gray-900">PKR {totalValue.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -282,10 +282,10 @@ export default function StockLookupPage() {
                         {item.minStock || 0} / {item.maxStock || 0}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${(item.unitPrice || 0).toFixed(2)}
+                        PKR {(item.unitPrice || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${(item.totalValue || 0).toFixed(2)}
+                        PKR {(item.totalValue || 0).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">

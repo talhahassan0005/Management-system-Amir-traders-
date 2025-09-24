@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import Layout from '@/components/Layout/Layout';
-import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 
 type PartyType = 'Customer' | 'Supplier';
 type Mode = 'Cash' | 'Bank' | 'Cheque';
@@ -42,10 +42,19 @@ export default function PaymentPage() {
   });
 
   const [partyInput, setPartyInput] = useState<string>(''); // For autocomplete input
+  const [search, setSearch] = useState<string>(''); // For recent payments search
 
   const partyOptions = useMemo(() => {
     return form.partyType === 'Customer' ? customers : suppliers;
   }, [form.partyType, customers, suppliers]);
+
+  // Map partyId -> label for quick lookup when rendering/searching
+  const partyLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    customers.forEach(c => map.set(c._id, c.label));
+    suppliers.forEach(s => map.set(s._id, s.label || s.business || ''));
+    return map;
+  }, [customers, suppliers]);
 
   const loadParties = async () => {
     try {
@@ -233,6 +242,26 @@ export default function PaymentPage() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-gray-900">Recent Payments</h3>
           </div>
+          <div className="mb-4 flex items-end gap-2">
+            <div className="w-64">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Voucher #, party, mode, amount, notes..."
+              />
+            </div>
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="mt-6 h-10 px-3 rounded-lg border bg-gray-50 hover:bg-gray-100 text-gray-700"
+              >
+                Clear
+              </button>
+            )}
+          </div>
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -252,17 +281,29 @@ export default function PaymentPage() {
                 ) : payments.length === 0 ? (
                   <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">No payments found</td></tr>
                 ) : (
-                  payments.map((p) => (
+                  // Filter payments with free-text search
+                  payments
+                    .filter((p) => {
+                      const q = (search || '').trim().toLowerCase();
+                      if (!q) return true;
+                      const vn = String(p.voucherNumber || '').toLowerCase();
+                      const date = String(p.date || '').slice(0,10).toLowerCase();
+                      const mode = String(p.mode || '').toLowerCase();
+                      const ptype = String(p.partyType || '').toLowerCase();
+                      const plabel = (partyLabelMap.get(p.partyId) || '').toLowerCase();
+                      const amt = String(p.amount || '').toLowerCase();
+                      const notes = String(p.notes || '').toLowerCase();
+                      return vn.includes(q) || date.includes(q) || mode.includes(q) || ptype.includes(q) || plabel.includes(q) || amt.includes(q) || notes.includes(q);
+                    })
+                    .map((p) => (
                     <tr key={p._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.voucherNumber}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.date?.toString()?.slice(0,10)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {(() => {
-                          const list = p.partyType === 'Customer' ? customers : suppliers;
-                          const match = list.find(o => o._id === p.partyId);
-                          const name = p.partyType === 'Supplier' ? (match?.business || match?.label || p.partyId) : (match?.label || p.partyId);
-                          return `${p.partyType}: ${name}`;
-                        })()}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{p.partyType}</span>
+                          <span className="text-gray-600 text-xs">{partyLabelMap.get(p.partyId) || '-'}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.mode}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.amount?.toFixed?.(2) || p.amount}</td>

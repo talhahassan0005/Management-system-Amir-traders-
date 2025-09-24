@@ -8,21 +8,32 @@ interface Product {
   _id: string;
   item: string;
   description: string;
-  brand: string;
-  sheetsPerPkt: number;
-  width: number;
-  length: number;
-  grams: number;
-  constant: string;
-  pktPerReem: number;
-  salePriceQt: number;
-  salePriceKg: number;
-  costRateQty: number;
-  minStockLevel: number;
-  maxStockLevel: number;
-  category: string;
-  type: string;
+  brand?: string;
+  sheetsPerPkt?: number;
+  width?: number;
+  length?: number;
+  grams?: number;
+  constant?: string;
+  pktPerReem?: number;
+  salePriceQt?: number;
+  salePriceKg?: number;
+  costRateQty?: number;
+  minStockLevel?: number;
+  maxStockLevel?: number;
+  category?: string;
+  type: 'Reel' | 'Board';
   isActive: boolean;
+}
+
+function formatCurrencyPKR(value: number | undefined) {
+  const v = typeof value === 'number' ? value : 0;
+  return `PKR ${v.toFixed(2)}`;
+}
+
+function getStatusBadgeClasses(isActive: boolean) {
+  return isActive
+    ? 'bg-green-100 text-green-800'
+    : 'bg-gray-100 text-gray-800';
 }
 
 export default function ProductsPage() {
@@ -56,11 +67,15 @@ export default function ProductsPage() {
   }, []);
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.item.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = (product.item || '').toLowerCase().includes(q) ||
+      (product.description || '').toLowerCase().includes(q) ||
+      (product.brand || '').toLowerCase().includes(q);
     const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'all' || (selectedStatus === 'active' ? product.isActive : !product.isActive);
-    
+    const matchesStatus =
+      selectedStatus === 'all' ||
+      (selectedStatus === 'active' ? product.isActive : selectedStatus === 'inactive' ? !product.isActive : true);
+
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
@@ -113,7 +128,7 @@ export default function ProductsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Low Stock</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {products.filter(p => p.minStockLevel > 0).length}
+                  {products.filter(p => (p.minStockLevel ?? 0) > 0).length}
                 </p>
               </div>
             </div>
@@ -167,8 +182,7 @@ export default function ProductsPage() {
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
-              <option value="low-stock">Low Stock</option>
-              <option value="out-of-stock">Out of Stock</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
         </div>
@@ -201,35 +215,32 @@ export default function ProductsPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
+                  <tr key={product._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                           <Package className="w-5 h-5 text-gray-600" />
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                          <div className="text-sm text-gray-500">SKU: {product.sku}</div>
+                          <div className="text-sm font-medium text-gray-900">{product.description}</div>
+                          <div className="text-sm text-gray-500">Item: {product.item}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {product.category}
+                      {product.category || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${product.price.toFixed(2)}
+                      {formatCurrencyPKR(product.salePriceQt ?? product.salePriceKg)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        <span className={`font-medium ${getStockColor(product.stock, product.minStock)}`}>
-                          {product.stock}
-                        </span>
-                        <span className="text-gray-500"> / {product.minStock} min</span>
+                      <div className="text-sm text-gray-900">
+                        {(product.minStockLevel ?? 0)}/{(product.maxStockLevel ?? 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status)}`}>
-                        {product.status.replace('-', ' ')}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClasses(product.isActive)}`}>
+                        {product.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

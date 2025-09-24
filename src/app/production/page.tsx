@@ -49,6 +49,9 @@ export default function ProductionPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Filters for Recent Productions (same behavior as Recent Purchases)
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>(new Date().toISOString().slice(0,10));
 
   const [form, setForm] = useState<Production>({ 
     date: new Date().toISOString().slice(0,10), 
@@ -109,7 +112,13 @@ export default function ProductionPage() {
   const fetchRows = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/production?limit=100');
+      let url = '/api/production?limit=100';
+      const params = new URLSearchParams();
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
+      const q = params.toString();
+      if (q) url += `&${q}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (res.ok) setRows(data.productions || []);
       else console.error('Failed to load productions:', data.error);
@@ -118,8 +127,13 @@ export default function ProductionPage() {
   };
 
   useEffect(() => { 
-    fetchRows(); 
     loadData(); 
+  }, []);
+
+  // Auto-load recent productions on initial mount with current date filters (To defaults to today)
+  useEffect(() => {
+    fetchRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = () => {
@@ -205,7 +219,7 @@ export default function ProductionPage() {
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save'); return; }
       
-      await fetchRows(); 
+  await fetchRows(); 
       await loadData(); // Reload stocks after production
       resetForm(); 
       setSuccessMsg('Production saved successfully');
@@ -363,9 +377,9 @@ export default function ProductionPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Main Production Form */}
-          <div className="lg:col-span-3">
+          <div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Production / Reprocess</h2>
               
@@ -718,45 +732,87 @@ export default function ProductionPage() {
             </div>
           </div>
 
-          {/* Recent Productions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Recent Productions</h3>
-            </div>
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materials</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
-                    <th className="px-6 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
-                    <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
-                  ) : rows.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No productions</td></tr>
-                  ) : (
-                    rows.map((r: Production) => (
-                      <tr key={r._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.productionNumber}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.date?.toString()?.slice(0,10)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.materialOut?.length || 0}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.items?.length || 0}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button onClick={()=>edit(r)} className="text-blue-600 hover:text-blue-900">Edit</button>
-                            <button onClick={()=> r._id && remove(r._id)} className="text-red-600 hover:text-red-900">Delete</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+          {/* Recent Productions moved to bottom with filters */}
+          <div className="mt-8" id="recent-productions">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Productions</h3>
+                <div className="text-gray-400 text-sm">List updates on Apply</div>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="inline-flex items-end gap-3 mb-4 min-w-max">
+                <div className="w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="w-48">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={fetchRows}
+                    disabled={loading}
+                    className="min-w-28 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Loading...' : 'Apply'}
+                  </button>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => { setFromDate(''); setToDate(new Date().toISOString().slice(0,10)); fetchRows(); }}
+                    className="min-w-28 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    Clear
+                  </button>
+                </div>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No.</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materials</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
+                      <th className="px-6 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
+                    ) : rows.length === 0 ? (
+                      <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No productions</td></tr>
+                    ) : (
+                      rows.map((r: Production) => (
+                        <tr key={r._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.productionNumber}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.date?.toString()?.slice(0,10)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.materialOut?.length || 0}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{r.items?.length || 0}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-2">
+                              <button onClick={()=>edit(r)} className="text-blue-600 hover:text-blue-900">Edit</button>
+                              <button onClick={()=> r._id && remove(r._id)} className="text-red-600 hover:text-red-900">Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
