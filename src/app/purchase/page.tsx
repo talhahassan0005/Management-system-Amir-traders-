@@ -1156,23 +1156,32 @@ export default function PurchasePage() {
                                         <head>
                                           <title>Purchase Invoice #${inv.invoiceNumber}</title>
                                           <style>
-                                            body { font-family: Arial, sans-serif; padding: 20px; }
-                                            .header { text-align: center; margin-bottom: 20px; }
-                                            .details { margin-bottom: 20px; }
-                                            table { width: 100%; border-collapse: collapse; }
-                                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                                            th { background-color: #f2f2f2; }
-                                            .total { font-weight: bold; }
+                                            @page { size: A4 portrait; margin: 12mm; }
+                                            @media print {
+                                              html, body { height: 100%; }
+                                              body { font-family: Arial, sans-serif; padding: 0; margin: 0; color: #111; }
+                                              .container { padding: 10mm; }
+                                              .header { text-align: center; margin-bottom: 8mm; }
+                                              .details { margin-bottom: 6mm; font-size: 12px; }
+                                              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                                              thead { display: table-header-group; }
+                                              tfoot { display: table-footer-group; }
+                                              th, td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; }
+                                              th { background-color: #f3f4f6; }
+                                              tr, td, th { break-inside: avoid; page-break-inside: avoid; }
+                                              .total { font-weight: 700; }
+                                            }
                                           </style>
                                         </head>
                                         <body>
-                                          <div class="header">
-                                            <h2>Purchase Invoice</h2>
-                                            <p>Invoice #: ${inv.invoiceNumber || 'N/A'}</p>
-                                            <p>Date: ${inv.date?.toString()?.slice(0, 10) || 'N/A'}</p>
-                                            <p>Supplier: ${inv.supplier || 'N/A'}</p>
-                                          </div>
-                                          <table>
+                                          <div class="container">
+                                            <div class="header">
+                                              <h2 style="margin:0 0 4px 0;">Purchase Invoice</h2>
+                                              <div style="font-size:12px;color:#444;">Invoice #: ${inv.invoiceNumber || 'N/A'}</div>
+                                              <div style="font-size:12px;color:#444;">Date: ${inv.date?.toString()?.slice(0, 10) || 'N/A'}</div>
+                                              <div style="font-size:12px;color:#444;">Supplier: ${inv.supplier || 'N/A'}</div>
+                                            </div>
+                                            <table>
                                             <thead>
                                               <tr>
                                                 <th>Product</th>
@@ -1193,11 +1202,21 @@ export default function PurchasePage() {
                                                 </tr>
                                               `).join('')}
                                             </tbody>
+                                            <tfoot>
+                                              <tr>
+                                                <td colspan="4" class="total" style="text-align:right;">Total Amount</td>
+                                                <td class="total">PKR ${(inv.totalAmount?.toFixed?.(2) || inv.totalAmount || 0)}</td>
+                                              </tr>
+                                              <tr>
+                                                <td colspan="4" style="text-align:right;">Discount</td>
+                                                <td>PKR ${(inv.discount || 0)}</td>
+                                              </tr>
+                                              <tr>
+                                                <td colspan="4" style="text-align:right;">Freight</td>
+                                                <td>PKR ${(inv.freight || 0)}</td>
+                                              </tr>
+                                            </tfoot>
                                           </table>
-                                          <div class="details">
-                                            <p class="total">Total Amount: PKR ${inv.totalAmount?.toFixed?.(2) || inv.totalAmount || 0}</p>
-                                            <p>Discount: PKR ${inv.discount || 0}</p>
-                                            <p>Freight: PKR ${inv.freight || 0}</p>
                                           </div>
                                           <script>window.print();</script>
                                         </body>

@@ -161,15 +161,9 @@ export default function LedgerReportPage() {
             .print-table th, .print-table td { padding: 4px 6px !important; }
           }
         `}</style>
-        <div className="flex items-center justify-between print:hidden">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Ledger Report</h1>
-            <p className="text-gray-600" suppressHydrationWarning>As on {now ? new Intl.DateTimeFormat('en-GB').format(now) : ''}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={loadLedger} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Load</button>
-            <button onClick={printPage} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Print</button>
-          </div>
+        <div className="print:hidden">
+          <h1 className="text-2xl font-bold text-gray-900">Ledger Report</h1>
+          <p className="text-gray-600" suppressHydrationWarning>As on {now ? new Intl.DateTimeFormat('en-GB').format(now) : ''}</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 print:shadow-none print:border-0">
