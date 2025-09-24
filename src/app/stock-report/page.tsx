@@ -209,9 +209,13 @@ export default function StockReportPage() {
       <div className="space-y-4">
         <style>{`
           @media print {
-            @page { size: landscape; margin: 10mm; }
+            @page { size: A4 landscape; margin: 10mm; }
             .print-container { padding: 0 !important; }
             .no-print-overflow { overflow: visible !important; }
+            table { width: 100%; border-collapse: collapse; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr, td, th { break-inside: avoid; page-break-inside: avoid; }
             .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
             .print-table th, .print-table td { padding: 4px 6px !important; }
           }

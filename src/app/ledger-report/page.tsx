@@ -91,6 +91,18 @@ export default function LedgerReportPage() {
   return (
     <Layout>
       <div className="space-y-6">
+        <style>{`
+          @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            /* Hide interactive UI already uses print:hidden on header */
+            table { width: 100%; border-collapse: collapse; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr, td, th { break-inside: avoid; page-break-inside: avoid; }
+            .print-table { font-size: 11px; }
+            .print-table th, .print-table td { padding: 4px 6px !important; }
+          }
+        `}</style>
         <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Ledger Report</h1>
@@ -154,7 +166,7 @@ export default function LedgerReportPage() {
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 print:shadow-none print:border-0">
           <div className="overflow-x-auto">
-            <table className="min-w-full border border-gray-300">
+            <table className="min-w-full border border-gray-300 print-table">
               <thead>
                 <tr className="bg-gray-50">
                   <th className="border border-gray-300 px-2 py-2 text-left text-xs font-semibold text-gray-900">Sr#</th>
