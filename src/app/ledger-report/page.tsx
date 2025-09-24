@@ -29,6 +29,7 @@ export default function LedgerReportPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [now, setNow] = useState<Date | null>(null);
+  const [openingBalance, setOpeningBalance] = useState<number>(0);
 
   const partyOptions = useMemo(() => partyType === 'Customer' ? customers : suppliers, [partyType, customers, suppliers]);
 
@@ -75,6 +76,7 @@ export default function LedgerReportPage() {
         reelNo: r.reelNo,
       }));
       setRows(ledger);
+      setOpeningBalance(Number(data.openingBalance || 0));
     } catch (e) { setErrorMsg('Unexpected error while loading'); }
     finally { setLoading(false); }
   };
@@ -87,6 +89,62 @@ export default function LedgerReportPage() {
   }, [rows]);
 
   const printPage = () => window.print();
+
+  // Export helpers
+  const exportCSV = () => {
+    if (!rows.length) return;
+    const header = ['Date','Voucher #','Qty','Weight','Item Name','Rate','Reel No.','Debit','Credit','Balance'];
+    const body = rows.map(r => [
+      r.date,
+      r.voucherNo,
+      r.qty ?? '',
+      r.weight ?? '',
+      r.itemName ?? '',
+      r.rate ?? '',
+      r.reelNo ?? '',
+      (Number(r.debit||0)).toFixed(2),
+      (Number(r.credit||0)).toFixed(2),
+      (Number(r.balance||0)).toFixed(2),
+    ]);
+    const totalsRow = ['Totals','','','','','','', totals.debit.toFixed(2), totals.credit.toFixed(2), totals.balance.toFixed(2)];
+    const csv = [header, ...body, totalsRow]
+      .map(row => row.map(val => `"${String(val).replace(/"/g,'""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ledger-report.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportTXT = () => {
+    if (!rows.length) return;
+    const header = ['Date','Voucher #','Qty','Weight','Item Name','Rate','Reel No.','Debit','Credit','Balance'];
+    const body = rows.map(r => [
+      r.date,
+      r.voucherNo,
+      r.qty ?? '',
+      r.weight ?? '',
+      r.itemName ?? '',
+      r.rate ?? '',
+      r.reelNo ?? '',
+      (Number(r.debit||0)).toFixed(2),
+      (Number(r.credit||0)).toFixed(2),
+      (Number(r.balance||0)).toFixed(2),
+    ].join('\t'));
+    const totalsLine = ['Totals','','','','','','', totals.debit.toFixed(2), totals.credit.toFixed(2), totals.balance.toFixed(2)].join('\t');
+    const content = [header.join('\t'), ...body, totalsLine].join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'ledger-report.txt'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    // Use browser's Print to PDF; print CSS formats the table for A4 landscape
+    window.print();
+  };
 
   return (
     <Layout>
@@ -158,7 +216,7 @@ export default function LedgerReportPage() {
               <div className="text-right">
                 <div className="text-sm text-gray-600" suppressHydrationWarning>{now ? new Intl.DateTimeFormat('en-GB').format(now) : ''}</div>
                 <div className="text-sm text-gray-600" suppressHydrationWarning>{now ? new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now) : ''}</div>
-                <div className="text-sm text-gray-600">Balance Before: (0.00)</div>
+                <div className="text-sm text-gray-600">Balance Before: {openingBalance < 0 ? `(${Math.abs(openingBalance).toFixed(2)})` : openingBalance.toFixed(2)}</div>
               </div>
             </div>
           </div>
@@ -215,6 +273,14 @@ export default function LedgerReportPage() {
               </tfoot>
             </table>
           </div>
+          {rows.length > 0 && (
+            <div className="flex items-center justify-end gap-2 p-3 print:hidden">
+              <button onClick={exportCSV} className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-blue-600 text-white hover:bg-blue-700">CSV</button>
+              <button onClick={exportTXT} className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">TXT</button>
+              <button onClick={exportPDF} className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-purple-600 text-white hover:bg-purple-700">PDF</button>
+              <button onClick={printPage} className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-green-600 text-white hover:bg-green-700">Print</button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

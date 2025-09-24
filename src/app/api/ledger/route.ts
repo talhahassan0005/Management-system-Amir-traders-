@@ -35,13 +35,29 @@ export async function GET(request: NextRequest) {
 
     const invQuery: any = (from || to) ? { date: range } : {};
     const piQuery: any = (from || to) ? { date: range } : {};
+    // Pre-range queries (to compute opening balance prior to 'from')
+    const preRange: any = {};
+    if (from) {
+      const preTo = new Date(from);
+      preTo.setHours(0,0,0,0);
+      preTo.setMilliseconds(preTo.getMilliseconds() - 1); // just before the day starts
+      preRange.$lte = preTo;
+    }
+    const payPreQuery: any = { partyType };
+    const recPreQuery: any = { partyType };
+    if (!(partyId.toLowerCase?.() === 'all')) { payPreQuery.partyId = partyId; recPreQuery.partyId = partyId; }
+    if (from) { payPreQuery.date = preRange; recPreQuery.date = preRange; }
+    const preInvQuery: any = from ? { date: preRange } : {};
+    const prePiQuery: any = from ? { date: preRange } : {};
     // If single party, filter invoices by party too
     if (!isAll && partyType === 'Customer') {
       const cust = await Customer.findById(partyId).lean();
       if ((cust as any)?.person) {
         invQuery.customer = (cust as any).person;
+        preInvQuery.customer = (cust as any).person;
       } else if ((cust as any)?.description) {
         invQuery.customer = (cust as any).description;
+        preInvQuery.customer = (cust as any).description;
       }
     }
     if (!isAll && partyType === 'Supplier') {
@@ -56,22 +72,30 @@ export async function GET(request: NextRequest) {
         
         if (matchCriteria.length > 0) {
           piQuery.supplier = { $in: matchCriteria };
+          prePiQuery.supplier = { $in: matchCriteria };
           console.log('Supplier match criteria:', matchCriteria);
         } else {
           // If no matching fields, search by the supplier ID itself as a string
           piQuery.supplier = partyId;
+          prePiQuery.supplier = partyId;
         }
       } else {
         console.log('Supplier not found, using partyId directly:', partyId);
         // If supplier document not found, try the partyId directly
         piQuery.supplier = partyId;
+        prePiQuery.supplier = partyId;
       }
     }
-    const [payments, receipts, saleInvoices, purchaseInvoices] = await Promise.all([
+    const [payments, receipts, saleInvoices, purchaseInvoices, prePayments, preReceipts, preSales, prePurchases] = await Promise.all([
       Payment.find(payQuery).sort({ date: 1 }),
       Receipt.find(recQuery).sort({ date: 1 }),
       SaleInvoice.find(partyType === 'Customer' ? invQuery : { _id: null }).sort({ date: 1 }),
       PurchaseInvoice.find(partyType === 'Supplier' ? piQuery : { _id: null }).sort({ date: 1 }),
+      // Pre-range data
+      Payment.find(from ? payPreQuery : { _id: null }).sort({ date: 1 }),
+      Receipt.find(from ? recPreQuery : { _id: null }).sort({ date: 1 }),
+      SaleInvoice.find(from && partyType === 'Customer' ? preInvQuery : { _id: null }).sort({ date: 1 }),
+      PurchaseInvoice.find(from && partyType === 'Supplier' ? prePiQuery : { _id: null }).sort({ date: 1 }),
     ]);
 
     console.log('Ledger query results:');
@@ -101,31 +125,36 @@ export async function GET(request: NextRequest) {
     };
     
     const rows: Row[] = [];
+    const preRows: Row[] = [];
     
     // Add payments/receipts with direction based on party type
     // For Customer ledger: Sale = debit, Payment (money received from customer) = credit, Receipt = credit
     // For Supplier ledger: Purchase = credit, Payment (money paid to supplier) = debit, Receipt = credit
-    payments.forEach(p => rows.push({ 
+    const pushPayment = (arr: Row[], p: any) => arr.push({ 
       date: p.date, 
       type: 'Payment', 
       voucher: p.voucherNumber, 
       debit: partyType === 'Supplier' ? p.amount : 0, 
       credit: partyType === 'Customer' ? p.amount : 0,
       itemName: p.notes || 'Payment'
-    }));
+    });
+    payments.forEach(p => pushPayment(rows, p));
+    prePayments.forEach(p => pushPayment(preRows, p));
     
-    receipts.forEach(r => rows.push({ 
+    const pushReceipt = (arr: Row[], r: any) => arr.push({ 
       date: r.date, 
       type: 'Receipt', 
       voucher: r.receiptNumber, 
       debit: 0, 
       credit: r.amount,
       itemName: r.notes || 'Receipt'
-    }));
+    });
+    receipts.forEach(r => pushReceipt(rows, r));
+    preReceipts.forEach(r => pushReceipt(preRows, r));
     
     // Add sale invoices
-    if (partyType === 'Customer') {
-      saleInvoices.forEach(si => {
+    const handleSaleInvoices = (source: any[], target: Row[]) => {
+      source.forEach(si => {
         const paymentType = String((si as any).paymentType || '').toLowerCase();
         const isCreditSale = paymentType === 'credit';
         const isCashSale = paymentType === 'cash';
@@ -136,7 +165,7 @@ export async function GET(request: NextRequest) {
             
             if (isCreditSale) {
               // Credit sale: customer owes money (debit)
-              rows.push({
+              target.push({
                 date: si.date,
                 type: 'Sale',
                 voucher: si.invoiceNumber,
@@ -150,7 +179,7 @@ export async function GET(request: NextRequest) {
               });
             } else if (isCashSale) {
               // Cash sale: add both sale (debit) and payment received (credit) to balance out
-              rows.push({
+              target.push({
                 date: si.date,
                 type: 'Sale',
                 voucher: si.invoiceNumber,
@@ -162,7 +191,7 @@ export async function GET(request: NextRequest) {
                 rate: item.rate || 0,
                 reelNo: item.reelNo || ''
               });
-              rows.push({
+              target.push({
                 date: si.date,
                 type: 'Payment',
                 voucher: si.invoiceNumber + '-CASH',
@@ -176,7 +205,7 @@ export async function GET(request: NextRequest) {
               });
             } else {
               // Default behavior for other payment types
-              rows.push({
+              target.push({
                 date: si.date,
                 type: 'Sale',
                 voucher: si.invoiceNumber,
@@ -196,7 +225,7 @@ export async function GET(request: NextRequest) {
           
           if (isCreditSale) {
             // Credit sale: customer owes money (debit)
-            rows.push({
+            target.push({
               date: si.date,
               type: 'Sale',
               voucher: si.invoiceNumber,
@@ -210,7 +239,7 @@ export async function GET(request: NextRequest) {
             });
           } else if (isCashSale) {
             // Cash sale: add both sale (debit) and payment received (credit) to balance out
-            rows.push({
+            target.push({
               date: si.date,
               type: 'Sale',
               voucher: si.invoiceNumber,
@@ -222,7 +251,7 @@ export async function GET(request: NextRequest) {
               rate: 0,
               reelNo: ''
             });
-            rows.push({
+            target.push({
               date: si.date,
               type: 'Payment',
               voucher: si.invoiceNumber + '-CASH',
@@ -236,7 +265,7 @@ export async function GET(request: NextRequest) {
             });
           } else {
             // Default behavior for other payment types
-            rows.push({
+            target.push({
               date: si.date,
               type: 'Sale',
               voucher: si.invoiceNumber,
@@ -251,11 +280,15 @@ export async function GET(request: NextRequest) {
           }
         }
       });
+    };
+    if (partyType === 'Customer') {
+      handleSaleInvoices(saleInvoices as any[], rows);
+      if (from) handleSaleInvoices(preSales as any[], preRows);
     }
     
     // Add purchase invoices (credit entries for suppliers)
-    if (partyType === 'Supplier') {
-      purchaseInvoices.forEach(pi => {
+    const handlePurchaseInvoices = (source: any[], target: Row[]) => {
+      source.forEach(pi => {
         if (pi.items && pi.items.length > 0) {
           const tempRows: Row[] = [] as any;
           let itemsCreditTotal = 0;
@@ -286,10 +319,10 @@ export async function GET(request: NextRequest) {
             });
           });
           if (itemsCreditTotal > 0) {
-            tempRows.forEach(r => rows.push(r));
+            tempRows.forEach(r => target.push(r));
           } else {
             // Fallback for legacy invoices without rate/value: show as single total row
-            rows.push({
+            target.push({
               date: pi.date,
               type: 'Purchase',
               voucher: pi.invoiceNumber,
@@ -304,7 +337,7 @@ export async function GET(request: NextRequest) {
           }
         } else {
           // If no items, add the invoice total as a single entry
-          rows.push({
+          target.push({
             date: pi.date,
             type: 'Purchase',
             voucher: pi.invoiceNumber,
@@ -318,11 +351,20 @@ export async function GET(request: NextRequest) {
           });
         }
       });
+    };
+    if (partyType === 'Supplier') {
+      handlePurchaseInvoices(purchaseInvoices as any[], rows);
+      if (from) handlePurchaseInvoices(prePurchases as any[], preRows);
     }
     
+    // Calculate opening balance (before 'from')
+    preRows.sort((a,b) => +a.date - +b.date);
+    let openingBalance = 0;
+    preRows.forEach(r => { openingBalance += (r.debit || 0) - (r.credit || 0); });
+
     rows.sort((a,b) => +a.date - +b.date);
 
-    let balance = 0; // positive = receivable, negative = payable (adjust as needed)
+    let balance = openingBalance; // start from opening balance
     const ledger = rows.map((r) => {
       balance += r.debit - r.credit;
       return { 
@@ -339,8 +381,8 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    console.log('Ledger built successfully, returning', ledger.length, 'entries');
-    return NextResponse.json({ ledger });
+    console.log('Ledger built successfully, returning', ledger.length, 'entries', 'Opening:', openingBalance.toFixed(2));
+    return NextResponse.json({ openingBalance, ledger });
   } catch (error) {
     console.error('Error building ledger:', error);
     return NextResponse.json({ error: 'Failed to build ledger: ' + (error as any)?.message || 'Unknown error' }, { status: 500 });
