@@ -374,16 +374,24 @@ export default function SaleInvoicePage() {
     if (!win) return;
     win.document.write(`<!doctype html><html><head><title>${invoice.invoiceNumber}</title>
       <style>
-        body{font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; padding:16px;}
-        h1,h2,h3{margin:0 0 8px 0}
-        table{width:100%; border-collapse: collapse;}
-        th,td{border:1px solid #ddd; padding:6px; font-size:12px;}
-        th{background:#f3f4f6; text-align:left}
-        .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:12px}
-        .totals{margin-top:12px; max-width:320px}
+        @page { size: A4 portrait; margin: 12mm; }
+        @media print {
+          html, body { height: 100%; }
+          body { font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; padding: 0; margin: 0; color: #111; }
+          .container { padding: 10mm; }
+          h1,h2,h3{margin:0 0 8px 0}
+          table{width:100%; border-collapse: collapse; font-size:12px; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          th,td{border:1px solid #bbb; padding:6px 8px;}
+          th{background:#f3f4f6; text-align:left}
+          tr, td, th { break-inside: avoid; page-break-inside: avoid; }
+          .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:12px}
+          .totals{margin-top:12px; max-width:320px}
+        }
       </style>
     </head><body>`);
-    win.document.write(html);
+    win.document.write(`<div class="container">${html}</div>`);
     win.document.write('</body></html>');
     win.document.close();
     win.focus();

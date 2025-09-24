@@ -190,8 +190,21 @@ export default function LedgerReportPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
               <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
               <button onClick={loadLedger} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
+              <button
+                onClick={() => {
+                  setPartyId('');
+                  setFrom('');
+                  setTo(new Date().toISOString().slice(0,10)); // keep Upto as today's default
+                  setRows([]);
+                  setOpeningBalance(0);
+                  setErrorMsg(null);
+                }}
+                className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+              >
+                Clear
+              </button>
             </div>
           </div>
 
