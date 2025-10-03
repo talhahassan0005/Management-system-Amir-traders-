@@ -904,19 +904,13 @@ export default function SaleInvoicePage() {
                   </div>
                   
                 </div>
-                <div className="flex space-x-2 mt-4">
+                <div className="flex space-x-1 mt-2">
                   <button
                     onClick={handleAddItem}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Grid</span>
-                  </button>
-                  <button className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors duration-200">
-                    Change Grid
-                  </button>
-                  <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
-                    Remove Grid
                   </button>
                 </div>
               </div>
