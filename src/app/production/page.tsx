@@ -387,67 +387,184 @@ export default function ProductionPage() {
               {successMsg && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200 mb-4">{successMsg}</div>}
               
               {/* Production Header */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-1 mb-3">
                 <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Production #</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Production #</label>
                   <input
                     type="text"
                     value={form.productionNumber || ''}
                     onChange={(e) => setForm((p: Production) => ({ ...p, productionNumber: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     placeholder="Auto-generated"
                     readOnly
                   />
                 </div>
                 <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Date</label>
                   <input
                     type="date"
                     value={form.date}
                     onChange={(e) => setForm((p: Production) => ({ ...p, date: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Referenced</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Referenced</label>
                   <input
                     type="text"
                     value={form.reference || ''}
                     onChange={(e)=>setForm((p: Production)=>({...p, reference: e.target.value}))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     placeholder="Reference#"
                   />
                 </div>
                 <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
                   <input
                     type="text"
                     value={form.remarks}
                     onChange={(e) => setForm((p: Production) => ({ ...p, remarks: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     placeholder="Optional"
                   />
                 </div>
               </div>
 
-              {/* Out Material Section */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
+              {/* Material Entry Section */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
-                    <Package className="w-5 h-5 text-orange-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">Out Material</h3>
+                    <Package className="w-4 h-4 text-orange-600" />
+                    <h3 className="text-sm font-semibold text-gray-900">Material Entry</h3>
                   </div>
-                  <button onClick={addMaterialOut} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1">
+                </div>
+                
+                {/* Material Entry Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-1 mb-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label>
+                    <select 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      onChange={(e) => {
+                        setForm(p => ({
+                          ...p,
+                          materialOut: p.materialOut.map((item, idx) => idx === 0 ? { ...item, storeId: e.target.value } : item)
+                        }));
+                      }}
+                    >
+                      <option value="">Select Store</option>
+                      {stores.map((store: Store) => (
+                        <option key={store._id} value={store._id}>{store.store}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
+                    <select
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      onChange={(e) => onChangeMaterialProduct(0, e.target.value)}
+                    >
+                      <option value="">Select Product</option>
+                      {products.map((pr: Product) => (
+                        <option key={pr._id} value={pr._id}>{pr.item}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Reel#</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      placeholder="Reel#"
+                      onChange={(e) => setForm(p => ({
+                        ...p,
+                        materialOut: p.materialOut.map((item, idx) => idx === 0 ? { ...item, reelNo: e.target.value } : item)
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      onChange={(e) => onChangeMaterialPkts(0, Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Weight</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Grams</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Packing</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Brand</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Description</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex space-x-1 mt-2">
+                  <button
+                    onClick={addMaterialOut}
+                    className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors duration-200 flex items-center space-x-2"
+                  >
                     <Plus className="w-4 h-4" />
-                    <span>Add Material</span>
+                    <span>Add Grid</span>
+                  </button>
+                  <button className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors duration-200">
+                    Change Grid
+                  </button>
+                  <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
+                    Remove Grid
                   </button>
                 </div>
 
+                {/* Material Items Display */}
+                <div className="mt-3">
                 {(form.materialOut||[]).length === 0 ? (
                   <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">No materials added</div>
                 ) : (
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200 text-base">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
                       <thead className="bg-orange-50">
                         <tr>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
@@ -455,14 +572,7 @@ export default function ProductionPage() {
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reel #</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QTY</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Width</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grams</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Length</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packing</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Av</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-                          <th className="px-4 py-2"></th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -557,18 +667,133 @@ export default function ProductionPage() {
                 <ArrowRight className="w-6 h-6 text-gray-400" />
               </div>
 
-              {/* In Material Section */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
+              {/* Product Entry Section */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
-                    <Package className="w-5 h-5 text-green-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">In Material</h3>
+                    <Package className="w-4 h-4 text-green-600" />
+                    <h3 className="text-sm font-semibold text-gray-900">Product Entry</h3>
                   </div>
-                  <button onClick={addProductionItem} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1">
+                </div>
+                
+                {/* Product Entry Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-1 mb-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label>
+                    <select 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      value={form.outputStoreId}
+                      onChange={(e)=>onChangeOutputStore(e.target.value)}
+                    >
+                      <option value="">Select Store</option>
+                      {stores.map((store: Store) => (
+                        <option key={store._id} value={store._id}>{store.store}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
+                    <select
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      disabled={!form.outputStoreId}
+                    >
+                      <option value="">Select Product</option>
+                      {products.map((pr: Product) => (
+                        <option key={pr._id} value={pr._id}>{pr.item}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Reel#</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                      placeholder="Reel#"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Weight</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Brand</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Grams</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Packing</label>
+                    <input 
+                      type="number" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Description</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex space-x-1 mt-2">
+                  <button
+                    onClick={addProductionItem}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
+                  >
                     <Plus className="w-4 h-4" />
-                    <span>Add Product</span>
+                    <span>Add Grid</span>
                   </button>
+                  <button className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors duration-200">
+                    Change Grid
+                  </button>
+                  <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200">
+                    Remove Grid
+                  </button>
+                </div>
               </div>
+
+              {/* In Material Section */}
 
               {(form.items||[]).length === 0 ? (
                   <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg">No products added</div>
@@ -695,9 +920,9 @@ export default function ProductionPage() {
               </div>
 
               {/* Totals Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1 mb-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Total Amount</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Total Amount</label>
                   <input
                     type="number"
                     step="0.01"
@@ -707,7 +932,7 @@ export default function ProductionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Total Weight</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Total Weight</label>
                   <input
                     type="number"
                     step="0.01"

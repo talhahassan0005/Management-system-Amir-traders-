@@ -507,23 +507,23 @@ export default function SaleInvoicePage() {
               <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Sale Invoice</h2>
               
               {/* Invoice Header */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-1 mb-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Invoice #</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Invoice #</label>
                   <input
                     type="text"
                     value={invoice.invoiceNumber}
                     onChange={(e) => handleInputChange('invoiceNumber', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Customer</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Customer</label>
                   <input
                     type="text"
                     value={invoice.customer}
                     onChange={(e) => handleInputChange('customer', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     placeholder="Start typing customer..."
                     list="customer-list"
                     autoComplete="off"
@@ -535,65 +535,65 @@ export default function SaleInvoicePage() {
                   </datalist>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">C. Days</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">C. Days</label>
                   <input
                     type="number"
                     value={invoice.cDays}
                     onChange={(e) => handleInputChange('cDays', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Date</label>
                   <input
                     type="date"
                     value={invoice.date}
                     onChange={(e) => handleInputChange('date', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reference#</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Reference#</label>
                   <input
                     type="text"
                     value={invoice.reference}
                     onChange={(e) => handleInputChange('reference', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Delivered To</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Delivered To</label>
                   <input
                     type="text"
                     value={invoice.deliveredTo}
                     onChange={(e) => handleInputChange('deliveredTo', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Limit</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Limit</label>
                   <input
                     type="number"
                     value={invoice.limit}
                     onChange={(e) => handleInputChange('limit', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Balance</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Balance</label>
                   <input
                     type="number"
                     value={Number(invoice.balance || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
                     readOnly
                   />
                 </div>
               </div>
 
               {/* Payment Type */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
-                <div className="flex items-center space-x-4">
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Payment Type</label>
+                <div className="flex items-center space-x-3">
                   <label className="flex items-center">
                     <input
                       type="radio"
@@ -601,9 +601,9 @@ export default function SaleInvoicePage() {
                       value="Cash"
                       checked={invoice.paymentType === 'Cash'}
                       onChange={(e) => handleInputChange('paymentType', e.target.value)}
-                      className="mr-2"
+                      className="mr-1"
                     />
-                    <span>Cash</span>
+                    <span className="text-sm">Cash</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -612,9 +612,9 @@ export default function SaleInvoicePage() {
                       value="Credit"
                       checked={invoice.paymentType === 'Credit'}
                       onChange={(e) => handleInputChange('paymentType', e.target.value)}
-                      className="mr-2"
+                      className="mr-1"
                     />
-                    <span>Credit</span>
+                    <span className="text-sm">Credit</span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -623,93 +623,93 @@ export default function SaleInvoicePage() {
                       value="Code"
                       checked={invoice.paymentType === 'Code'}
                       onChange={(e) => handleInputChange('paymentType', e.target.value)}
-                      className="mr-2"
+                      className="mr-1"
                     />
-                    <span>Code</span>
+                    <span className="text-sm">Code</span>
                   </label>
                 </div>
               </div>
 
               {/* Delivery Address */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Delivery Address</label>
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Delivery Address</label>
                 <textarea
                   value={invoice.deliveryAddress}
                   onChange={(e) => handleInputChange('deliveryAddress', e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={2}
+                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
 
               {/* Bilty Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-1 mb-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Adda</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Adda</label>
                   <input
                     type="text"
                     value={invoice.adda}
                     onChange={(e) => handleInputChange('adda', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Bilty No.</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Bilty No.</label>
                   <input
                     type="text"
                     value={invoice.biltyNo}
                     onChange={(e) => handleInputChange('biltyNo', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Bilty Date</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Bilty Date</label>
                   <input
                     type="date"
                     value={invoice.biltyDate}
                     onChange={(e) => handleInputChange('biltyDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">CTN</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">CTN</label>
                   <input
                     type="text"
                     value={invoice.ctn}
                     onChange={(e) => handleInputChange('ctn', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Delivered By</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Delivered By</label>
                   <input
                     type="text"
                     value={invoice.deliveredBy}
                     onChange={(e) => handleInputChange('deliveredBy', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
                   <input
                     type="text"
                     value={invoice.remarks}
                     onChange={(e) => handleInputChange('remarks', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
               </div>
 
               {/* Product Entry Section */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Entry</h3>
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Product Entry</h3>
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-1">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label>
                     <input
                       type="text"
                       value={currentItem.store}
                       onChange={(e) => handleItemInputChange('store', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       placeholder="Start typing store..."
                       list="store-list"
                       autoComplete="off"
@@ -721,7 +721,7 @@ export default function SaleInvoicePage() {
                     </datalist>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
                     <select
                       value={currentItem.product}
                       onChange={(e) => {
@@ -749,7 +749,7 @@ export default function SaleInvoicePage() {
                           return next;
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     >
                       <option value="">Select Product</option>
                       {products.map(product => (
@@ -758,74 +758,74 @@ export default function SaleInvoicePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Length</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
                     <input
                       type="number"
                       value={currentItem.length === 0 ? '' : currentItem.length}
                       onChange={(e) => handleItemInputChange('length', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
                     <input
                       type="number"
                       value={currentItem.width === 0 ? '' : currentItem.width}
                       onChange={(e) => handleItemInputChange('width', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Grams</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Grams</label>
                     <input
                       type="number"
                       value={currentItem.grams === 0 ? '' : currentItem.grams}
                       onChange={(e) => handleItemInputChange('grams', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Descrip.</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Descrip.</label>
                     <input
                       type="text"
                       value={currentItem.description}
                       onChange={(e) => handleItemInputChange('description', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Packing</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Packing</label>
                     <input
                       type="number"
                       value={currentItem.packing === 0 ? '' : currentItem.packing}
                       onChange={(e) => handleItemInputChange('packing', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Brand</label>
                     <input
                       type="text"
                       value={currentItem.brand}
                       onChange={(e) => handleItemInputChange('brand', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Reel#</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Reel#</label>
                     <input
                       type="text"
                       value={currentItem.reelNo}
                       onChange={(e) => handleItemInputChange('reelNo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Constant</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Constant</label>
                     <select
                       value={currentItem.constant}
                       onChange={(e) => handleItemInputChange('constant', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     >
                       <option value="">Select</option>
                       <option value="Board">Board</option>
@@ -833,72 +833,72 @@ export default function SaleInvoicePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Pkt</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Pkt</label>
                     <input
                       type="number"
                       value={currentItem.pkt === 0 ? '' : currentItem.pkt}
                       onChange={(e) => handleItemInputChange('pkt', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Weight</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Weight</label>
                     <input
                       type="number"
                       step="0.01"
                       value={currentItem.weight}
                       onChange={(e) => handleItemInputChange('weight', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Stock</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Stock</label>
                     <input
                       type="number"
                       value={currentItem.stock}
                       onChange={(e) => handleItemInputChange('stock', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
                     <input
                       type="number"
                       step="0.01"
                       value={currentItem.rate}
                       onChange={(e) => handleItemInputChange('rate', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Rate On</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate On</label>
                     <select
                       value={currentItem.rateOn}
                       onChange={(e) => handleItemInputChange('rateOn', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     >
                       <option value="Weight">Weight</option>
                       <option value="Quantity">Quantity</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
                     <input
                       type="text"
                       value={currentItem.remarks}
                       onChange={(e) => handleItemInputChange('remarks', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
                     
                     <input
                       type="number"
                       step="0.01"
                       value={currentItem.value}
                       onChange={(e) => handleItemInputChange('value', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       readOnly
                     />
                   </div>
@@ -968,7 +968,7 @@ export default function SaleInvoicePage() {
               )}
 
               {/* Totals Section */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-1">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Total Amount</label>
                   <input
@@ -987,7 +987,7 @@ export default function SaleInvoicePage() {
                       step="0.01"
                       value={invoice.discountPercent}
                       onChange={(e) => handleInputChange('discountPercent', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       placeholder="%"
                     />
                     <input
@@ -995,7 +995,7 @@ export default function SaleInvoicePage() {
                       step="0.01"
                       value={invoice.discountRs}
                       onChange={(e) => handleInputChange('discountRs', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       placeholder="Rs"
                     />
                   </div>
@@ -1116,7 +1116,7 @@ export default function SaleInvoicePage() {
                   value={saleSearch}
                   onChange={(e) => setSaleSearch(e.target.value)}
                   placeholder="Search by Invoice #"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
             </div>

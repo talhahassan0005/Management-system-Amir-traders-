@@ -601,25 +601,25 @@ export default function PurchasePage() {
                   {successMsg}
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-gray-700">Date</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Date</label>
                   <input 
                     type="date" 
                     value={form.date} 
                     onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} 
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md" 
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm" 
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-gray-700">Store (lock for items)</label>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Store (lock for items)</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={globalStore}
                       onChange={(e) => setGlobalStore(e.target.value)}
                       disabled={storeLocked}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                       placeholder="Start typing store..."
                       list="global-store-list"
                       autoComplete="off"
@@ -657,29 +657,29 @@ export default function PurchasePage() {
                     ))}
                   </datalist>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-gray-700">Reference</label>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Reference</label>
                   <input 
                     type="text" 
                     value={form.reference} 
                     onChange={(e) => setForm((p) => ({ ...p, reference: e.target.value }))} 
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md" 
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm" 
                     placeholder="Enter reference number"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-gray-700">Payment Type</label>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Payment Type</label>
                   <select 
                     value={form.paymentType} 
                     onChange={(e) => setForm((p) => ({ ...p, paymentType: e.target.value as any }))} 
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   >
                     <option value="Cash">Cash</option>
                     <option value="Credit">Credit</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-gray-700">Supplier</label>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-700">Supplier</label>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2">
                       <input
@@ -693,7 +693,7 @@ export default function PurchasePage() {
                         }}
                         list="supplier-list"
                         placeholder="Start typing supplier..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                         autoComplete="off"
                       />
                       <datalist id="supplier-list">
@@ -730,16 +730,16 @@ export default function PurchasePage() {
 
               <div>
                 {/* Product Entry Grid (same behaviour style as Sales) */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Entry</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Product Entry</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-1">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Store</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label>
                       <input
                         type="text"
                         value={storeLocked ? globalStore : currentItem.store}
                         onChange={(e) => handleCurrentItemChange('store', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                         placeholder="Start typing store..."
                         list="entry-store-list"
                         autoComplete="off"
@@ -754,11 +754,11 @@ export default function PurchasePage() {
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Product</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
                       <select
                         value={currentItem.product}
                         onChange={(e) => handleCurrentItemChange('product', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       >
                         <option value="">Select Product</option>
                         {products.map((product: any) => (
@@ -769,121 +769,121 @@ export default function PurchasePage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Qty</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
                       <input
                         type="number"
                         value={currentItem.qty === 0 ? '' : currentItem.qty}
                         onChange={(e) => handleCurrentItemChange('qty', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                         min={0}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Weight</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Weight</label>
                       <input
                         type="number"
                         step="0.01"
                         value={currentItem.weight === 0 ? '' : currentItem.weight}
                         onChange={(e) => handleCurrentItemChange('weight', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
                       <input
                         type="number"
                         step="0.01"
                         value={currentItem.rate === 0 ? '' : currentItem.rate}
                         onChange={(e) => handleCurrentItemChange('rate', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate On</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate On</label>
                       <select
                         value={currentItem.rateOn || 'Weight'}
                         onChange={(e) => handleCurrentItemChange('rateOn', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       >
                         <option value="Weight">Weight</option>
                         <option value="Quantity">Quantity</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
                       <input
                         type="number"
                         step="0.01"
                         value={currentItem.value === 0 ? '' : currentItem.value}
                         readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Stock</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Stock</label>
                       <input
                         type="number"
                         value={currentItem.stock === 0 ? '' : currentItem.stock}
                         readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Length</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
                       <input
                         type="number"
                         value={currentItem.length === 0 ? '' : currentItem.length}
                         onChange={(e) => handleCurrentItemChange('length', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Width</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
                       <input
                         type="number"
                         value={currentItem.width === 0 ? '' : currentItem.width}
                         onChange={(e) => handleCurrentItemChange('width', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Grams</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Grams</label>
                       <input
                         type="number"
                         value={currentItem.grams === 0 ? '' : currentItem.grams}
                         onChange={(e) => handleCurrentItemChange('grams', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Brand</label>
                       <input
                         type="text"
                         value={currentItem.brand || ''}
                         onChange={(e) => handleCurrentItemChange('brand', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Description</label>
                       <input
                         type="text"
                         value={currentItem.description || ''}
                         onChange={(e) => handleCurrentItemChange('description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                     <div className="md:col-span-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
                       <input
                         type="text"
                         value={currentItem.remarks || ''}
                         onChange={(e) => handleCurrentItemChange('remarks', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                       />
                     </div>
                   </div>
-                  <div className="flex space-x-2 mt-4">
+                  <div className="flex space-x-1 mt-2">
                     <button
                       onClick={addCurrentItemToGrid}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
@@ -899,8 +899,8 @@ export default function PurchasePage() {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Invoice Items</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Invoice Items</h3>
                 </div>
                 {form.items.length > 0 && (
                 <div className="rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
