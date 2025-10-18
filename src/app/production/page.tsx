@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Plus, Save, Trash2, Package, ArrowRight } from 'lucide-react';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Product { _id: string; item: string; description: string; length?: number; width?: number; grams?: number; type?: 'Reel' | 'Board' | string }
 interface Store { _id: string; store: string; description: string; status: string }
@@ -84,6 +85,16 @@ export default function ProductionPage() {
     }
   };
 
+  const loadStores = async () => {
+    try {
+      const storesRes = await fetch('/api/stores?status=Active');
+      const storesData = await storesRes.json();
+      if (storesRes.ok) setStores(storesData.stores || []);
+    } catch (e) {
+      console.error('Error loading stores', e);
+    }
+  };
+
   const fetchStockFor = async (productId?: string, storeId?: string) => {
     try {
       if (!productId || !storeId) return;
@@ -127,7 +138,17 @@ export default function ProductionPage() {
   };
 
   useEffect(() => { 
-    loadData(); 
+    loadData();
+    
+    // Listen for store updates
+    const handleStoreUpdate = () => {
+      loadStores();
+    };
+    window.addEventListener('storeUpdated', handleStoreUpdate);
+    
+    return () => {
+      window.removeEventListener('storeUpdated', handleStoreUpdate);
+    };
   }, []);
 
   // Auto-load recent productions on initial mount with current date filters (To defaults to today)
@@ -135,6 +156,13 @@ export default function ProductionPage() {
     fetchRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Silent auto-refresh every 10 seconds for real-time production updates
+  useAutoRefresh(() => {
+    if (!saving) {
+      fetchRows();
+    }
+  }, 10000);
 
   const resetForm = () => {
     setSelected(null);

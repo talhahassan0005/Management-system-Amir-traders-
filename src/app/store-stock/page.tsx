@@ -41,7 +41,19 @@ export default function StoreStockPage() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { loadStores(); }, []);
+  useEffect(() => { 
+    loadStores();
+    
+    // Listen for store updates
+    const handleStoreUpdate = () => {
+      loadStores();
+    };
+    window.addEventListener('storeUpdated', handleStoreUpdate);
+    
+    return () => {
+      window.removeEventListener('storeUpdated', handleStoreUpdate);
+    };
+  }, []);
   useEffect(() => { load(); }, [store]);
 
   // Silent auto-refresh every 10 seconds for real-time stock updates

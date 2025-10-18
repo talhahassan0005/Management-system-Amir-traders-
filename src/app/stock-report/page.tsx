@@ -165,7 +165,19 @@ export default function StockReportPage() {
     finally { setLoading(false); }
   };
 
-    useEffect(() => { fetchRows(); }, []); // initial load
+    useEffect(() => { 
+      fetchRows();
+      
+      // Listen for store updates
+      const handleStoreUpdate = () => {
+        fetchRows();
+      };
+      window.addEventListener('storeUpdated', handleStoreUpdate);
+      
+      return () => {
+        window.removeEventListener('storeUpdated', handleStoreUpdate);
+      };
+    }, []); // initial load
 
   // Silent auto-refresh every 10 seconds for real-time stock report updates
   useAutoRefresh(() => {
