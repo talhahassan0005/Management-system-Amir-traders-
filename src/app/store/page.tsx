@@ -57,13 +57,46 @@ export default function StorePage() {
   const edit = async () => {
     if (!selected?._id) return;
     const res = await fetch(`/api/stores/${selected._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    if (res.ok) { reset(); fetchStores(); }
+    if (res.ok) { 
+      reset(); 
+      fetchStores();
+      // Emit event to update other tabs
+      console.log('✅ Store updated, emitting storeUpdated event (cross-tab)');
+      emitStoreUpdated();
+    }
   };
 
   const remove = async () => {
     if (!selected?._id) return;
-    const res = await fetch(`/api/stores/${selected._id}`, { method: 'DELETE' });
-    if (res.ok) { reset(); fetchStores(); }
+    
+    // Confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the store "${selected.store}"?\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmed) {
+      console.log('❌ Store deletion cancelled by user');
+      return;
+    }
+    
+    try {
+      console.log('🗑️ Deleting store:', selected.store);
+      const res = await fetch(`/api/stores/${selected._id}`, { method: 'DELETE' });
+      
+      if (res.ok) {
+        console.log('✅ Store deleted successfully, refreshing list');
+        reset();
+        fetchStores();
+        // Emit event to update other tabs
+        emitStoreUpdated();
+      } else {
+        const error = await res.json();
+        alert(`Failed to delete store: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting store:', error);
+      alert('Failed to delete store. Please try again.');
+    }
   };
 
   return (
