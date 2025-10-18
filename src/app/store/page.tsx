@@ -47,9 +47,8 @@ export default function StorePage() {
         reset();
         fetchStores();
         // Emit event for other pages to refresh their store dropdowns
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('storeUpdated'));
-        }
+        console.log('✅ Store created, emitting storeUpdated event');
+        window.dispatchEvent(new CustomEvent('storeUpdated', { detail: { timestamp: Date.now() } }));
       }
     } finally { setSaving(false); }
   };

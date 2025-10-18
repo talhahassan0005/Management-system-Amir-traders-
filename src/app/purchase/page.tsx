@@ -132,9 +132,13 @@ export default function PurchasePage() {
 
   const loadStores = async () => {
     try {
+      console.log('🔄 Purchase page loading stores...');
       const stRes = await fetch('/api/stores?status=Active');
       const stData = await stRes.json();
-      if (stRes.ok) setStores(stData.stores || []);
+      if (stRes.ok) {
+        setStores(stData.stores || []);
+        console.log('✅ Purchase page loaded', stData.stores?.length, 'stores');
+      }
     } catch (e) {
       console.error('Error loading stores:', e);
     }
@@ -165,7 +169,8 @@ export default function PurchasePage() {
     })();
 
     // Listen for store updates from other pages
-    const handleStoreUpdate = () => {
+    const handleStoreUpdate = (e: Event) => {
+      console.log('🔔 Purchase page received storeUpdated event', e);
       loadStores();
     };
     window.addEventListener('storeUpdated', handleStoreUpdate);
