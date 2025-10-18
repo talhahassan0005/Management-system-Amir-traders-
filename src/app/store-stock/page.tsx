@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Row {
   store: string;
@@ -42,6 +43,11 @@ export default function StoreStockPage() {
 
   useEffect(() => { loadStores(); }, []);
   useEffect(() => { load(); }, [store]);
+
+  // Silent auto-refresh every 10 seconds for real-time stock updates
+  useAutoRefresh(() => {
+    if (!loading) load();
+  }, 10000);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();

@@ -43,6 +43,14 @@ export default function StoreInPage() {
   const [globalStore, setGlobalStore] = useState('');
   const [storeLocked, setStoreLocked] = useState(false);
 
+  const loadStores = async () => {
+    try {
+      const stRes = await fetch('/api/stores?status=Active');
+      const stData = await stRes.json();
+      if (stRes.ok) setStores((stData.stores || []).map((s: any) => ({ _id: s._id, store: s.store })));
+    } catch {}
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -55,6 +63,13 @@ export default function StoreInPage() {
         if (pRes.ok) setProducts((pData.products || []));
       } catch {}
     })();
+
+    // Listen for store updates
+    const handleStoreUpdate = () => {
+      loadStores();
+    };
+    window.addEventListener('storeUpdated', handleStoreUpdate);
+    return () => window.removeEventListener('storeUpdated', handleStoreUpdate);
   }, []);
 
   const addItem = () => setItems(prev => [...prev, { store: globalStore || '', product: '', qty: 0, weight: 0 }]);
@@ -238,8 +253,8 @@ export default function StoreInPage() {
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Store</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase">Product</th>
-                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Qty</th>
-                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Stock</th>
+                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Qty to Add</th>
+                    <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Current → New</th>
                     <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Weight</th>
                     <th className="px-2 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Reel #</th>
                     <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 uppercase">Actions</th>
@@ -284,7 +299,14 @@ export default function StoreInPage() {
                           <input type="number" value={it.qty === 0 ? '' : it.qty} onChange={(e)=>handleChange(idx,'qty', e.target.value===''?0:Number(e.target.value)||0)} className="w-24 px-2 py-1 border rounded-lg text-right text-sm" min={0} step={1} />
                         </td>
                         <td className="px-2 py-2">
-                          <input type="number" readOnly value={it.stock ?? ''} className="w-24 px-2 py-1 border rounded-lg bg-gray-50 text-right text-sm" />
+                          {it.baseStock !== undefined ? (
+                            <div className="text-xs text-center">
+                              <div className="text-gray-600 font-medium">{it.baseStock} Pkts</div>
+                              <div className="text-blue-600">→ {it.stock ?? it.baseStock}</div>
+                            </div>
+                          ) : (
+                            <input type="number" readOnly value={it.stock ?? ''} className="w-24 px-2 py-1 border rounded-lg bg-gray-50 text-right text-sm" />
+                          )}
                         </td>
                         <td className="px-2 py-2">
                           <input type="number" value={it.weight === 0 ? '' : it.weight} onChange={(e)=>handleChange(idx,'weight', e.target.value===''?0:Number(e.target.value)||0)} className="w-28 px-2 py-1 border rounded-lg text-right text-sm" step="0.1" min={0} />

@@ -43,7 +43,14 @@ export default function StorePage() {
       setSaving(true);
       const body = JSON.stringify(form);
       const res = await fetch('/api/stores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-      if (res.ok) { reset(); fetchStores(); }
+      if (res.ok) {
+        reset();
+        fetchStores();
+        // Emit event for other pages to refresh their store dropdowns
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('storeUpdated'));
+        }
+      }
     } finally { setSaving(false); }
   };
 

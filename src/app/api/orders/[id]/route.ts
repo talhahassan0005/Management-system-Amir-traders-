@@ -37,6 +37,23 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  try {
+    await dbConnect();
+    const body = await request.json();
+    const { id } = await ctx.params;
+    const order = await Order.findByIdAndUpdate(id, body, { new: true, runValidators: true });
+    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error('Error updating order:', error);
+    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   ctx: { params: Promise<{ id: string }> }

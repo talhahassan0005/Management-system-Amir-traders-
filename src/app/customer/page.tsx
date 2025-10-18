@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Save, Edit, Trash2, RefreshCw, X, Search, Loader2 } from 'lucide-react';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Customer {
   _id?: string;
@@ -84,6 +85,13 @@ export default function CustomerPage() {
     };
     return () => es.close();
   }, [searchQuery, searchFilter]);
+
+  // Silent auto-refresh every 10 seconds as backup to SSE
+  useAutoRefresh(() => {
+    if (!isEditing && !saving) {
+      fetchCustomers();
+    }
+  }, 10000);
 
   const handleInputChange = (field: keyof Customer, value: string | number | boolean) => {
     setFormData(prev => ({

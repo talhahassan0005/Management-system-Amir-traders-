@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Save, Plus, Printer } from 'lucide-react';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface SaleInvoiceItem {
   store: string;
@@ -129,6 +130,17 @@ export default function SaleInvoicePage() {
     }
   };
 
+  // Helper function to load stores
+  const loadStores = async () => {
+    try {
+      const sRes = await fetch('/api/stores?status=Active');
+      const sData = await sRes.json();
+      if (sRes.ok) setStores(sData.stores || []);
+    } catch (e) {
+      console.error('Error loading stores', e);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchSaleInvoices();
@@ -139,12 +151,28 @@ export default function SaleInvoicePage() {
         const data = await res.json();
         if (res.ok) setCustomers(data.customers || []);
         // Load stores for typeahead
-        const sRes = await fetch('/api/stores?status=Active');
-        const sData = await sRes.json();
-        if (sRes.ok) setStores(sData.stores || []);
+        await loadStores();
       } catch (e) { console.error('Error loading customers', e); }
     })();
+
+    // Listen for store updates
+    const handleStoreUpdate = () => {
+      loadStores();
+    };
+    window.addEventListener('storeUpdated', handleStoreUpdate);
+
+    // Cleanup listener
+    return () => {
+      window.removeEventListener('storeUpdated', handleStoreUpdate);
+    };
   }, []);
+
+  // Silent auto-refresh every 10 seconds for real-time sale invoice updates
+  useAutoRefresh(() => {
+    if (!saving) {
+      fetchSaleInvoices();
+    }
+  }, 10000);
 
   // Auto-fetch customer balance when customer changes
   useEffect(() => {
@@ -376,16 +404,29 @@ export default function SaleInvoicePage() {
       <style>
         @page { size: A4 portrait; margin: 12mm; }
         @media print {
-          html, body { height: 100%; }
-          body { font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; padding: 0; margin: 0; color: #111; }
-          .container { padding: 10mm; }
-          h1,h2,h3{margin:0 0 8px 0}
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body { height: 100%; width: 100%; }
+          body { font-family: Arial, Helvetica, sans-serif; padding: 0; margin: 0; color: #111; font-size: 12px; }
+          .container { padding: 10mm; max-width: 100%; }
+          h1,h2,h3{margin:0 0 8px 0; font-weight: bold;}
           table{width:100%; border-collapse: collapse; font-size:12px; }
           thead { display: table-header-group; }
           tfoot { display: table-footer-group; }
-          th,td{border:1px solid #bbb; padding:6px 8px;}
+          tbody { display: table-row-group; }
+          th,td{border:1px solid #333; padding:6px 8px; vertical-align: top;}
+          th{background:#f3f4f6; text-align:left; font-weight: bold;}
+          tr { page-break-inside: avoid; break-inside: avoid; }
+          td, th { page-break-inside: avoid; break-inside: avoid; }
+          .grid{display:block; margin-bottom:12px;}
+          .grid > div { margin-bottom: 4px; }
+          .totals{margin-top:12px; max-width:320px;}
+        }
+        @media screen {
+          body { font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; padding:16px;}
+          h1,h2,h3{margin:0 0 8px 0}
+          table{width:100%; border-collapse: collapse;}
+          th,td{border:1px solid #ddd; padding:6px; font-size:12px;}
           th{background:#f3f4f6; text-align:left}
-          tr, td, th { break-inside: avoid; page-break-inside: avoid; }
           .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:12px}
           .totals{margin-top:12px; max-width:320px}
         }
@@ -425,6 +466,7 @@ export default function SaleInvoicePage() {
 
   const handlePrint = (type: 'combine' | 'single' | 'sale+do') => {
     const header = `
+      <h1 style="text-align:center;margin:0 0 8px 0;font-size:24px;color:#1a1a1a;">Amir Traders</h1>
       <h2>Sale Invoice</h2>
       <div class="grid">
         <div><strong>Invoice#:</strong> ${invoice.invoiceNumber}</div>

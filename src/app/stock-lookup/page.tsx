@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Search, Package, AlertTriangle, Loader2 } from 'lucide-react';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface StockItem {
   _id?: string;
@@ -81,6 +82,9 @@ export default function StockLookupPage() {
   useEffect(() => {
     fetchStockData();
   }, []);
+
+  // Silent auto-refresh every 10 seconds for real-time stock updates
+  useAutoRefresh(fetchStockData, 10000);
 
   const filteredData = stockData.filter(item => {
     const matchesSearch = 

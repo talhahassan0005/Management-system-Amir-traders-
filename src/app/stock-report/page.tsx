@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Filter as FilterIcon, RefreshCw, XCircle, Download, Printer, Search } from 'lucide-react';
 import Layout from '@/components/Layout/Layout';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface MergedRow {
   _id: string;
@@ -165,6 +166,11 @@ export default function StockReportPage() {
   };
 
     useEffect(() => { fetchRows(); }, []); // initial load
+
+  // Silent auto-refresh every 10 seconds for real-time stock report updates
+  useAutoRefresh(() => {
+    if (!loading) fetchRows();
+  }, 10000);
 
   const filtered = useMemo(() => {
     let out = rows;

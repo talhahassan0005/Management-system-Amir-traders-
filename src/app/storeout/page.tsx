@@ -17,6 +17,17 @@ export default function StoreOutPage() {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [currentStock, setCurrentStock] = useState<{ qty: number; weight: number } | null>(null);
+  const [storeName, setStoreName] = useState('');
+  const [productCode, setProductCode] = useState('');
+
+  const loadStores = async () => {
+    try {
+      const stRes = await fetch('/api/stores?status=Active');
+      const stData = await stRes.json();
+      if (stRes.ok) setStores((stData.stores || []).map((s: any) => ({ _id: s._id, label: s.store })));
+    } catch {}
+  };
 
   useEffect(() => {
     (async () => {
@@ -30,10 +41,57 @@ export default function StoreOutPage() {
         if (pRes.ok) setProducts((pData.products || []).map((p: any) => ({ _id: p._id, label: p.item })));
       } catch {}
     })();
+
+    // Listen for store updates
+    const handleStoreUpdate = () => {
+      loadStores();
+    };
+    window.addEventListener('storeUpdated', handleStoreUpdate);
+    return () => window.removeEventListener('storeUpdated', handleStoreUpdate);
   }, []);
+
+  // Fetch current stock when store and product are selected
+  useEffect(() => {
+    const fetchCurrentStock = async () => {
+      if (!storeName || !productCode) {
+        setCurrentStock(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/store-stock?store=${encodeURIComponent(storeName)}`);
+        const data = await res.json();
+        
+        if (res.ok && Array.isArray(data.data)) {
+          const stockItem = data.data.find((item: any) => 
+            String(item.itemCode).trim().toUpperCase() === productCode.toUpperCase()
+          );
+          
+          if (stockItem) {
+            const currentQty = Number(stockItem.currentQty || 0);
+            const currentWeight = Number(stockItem.currentWeight || 0);
+            setCurrentStock({ qty: currentQty, weight: currentWeight });
+            // Auto-fill with current stock values (user can reduce)
+            setQty(currentQty);
+            setWeight(currentWeight);
+          } else {
+            setCurrentStock({ qty: 0, weight: 0 });
+            setQty('');
+            setWeight('');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching current stock:', error);
+        setCurrentStock(null);
+      }
+    };
+
+    fetchCurrentStock();
+  }, [storeName, productCode]);
 
   const reset = () => {
     setStoreId(''); setProductId(''); setQty(''); setWeight(''); setReelNo(''); setNotes(''); setErrorMsg(null); setSuccessMsg(null);
+    setStoreName(''); setProductCode(''); setCurrentStock(null);
   };
 
   const save = async () => {
@@ -72,14 +130,24 @@ export default function StoreOutPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
-              <select value={storeId} onChange={(e)=>setStoreId(e.target.value)} className="w-full px-3 py-2 border rounded">
+              <select value={storeId} onChange={(e)=>{
+                const id = e.target.value;
+                setStoreId(id);
+                const store = stores.find(s => s._id === id);
+                setStoreName(store?.label || '');
+              }} className="w-full px-3 py-2 border rounded">
                 <option value="">Select store</option>
                 {stores.map(s => <option key={s._id} value={s._id}>{s.label}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
-              <select value={productId} onChange={(e)=>setProductId(e.target.value)} className="w-full px-3 py-2 border rounded">
+              <select value={productId} onChange={(e)=>{
+                const id = e.target.value;
+                setProductId(id);
+                const product = products.find(p => p._id === id);
+                setProductCode(product?.label || '');
+              }} className="w-full px-3 py-2 border rounded">
                 <option value="">Select product</option>
                 {products.map(p => <option key={p._id} value={p._id}>{p.label}</option>)}
               </select>
@@ -88,12 +156,18 @@ export default function StoreOutPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Reel # (optional)</label>
               <input value={reelNo} onChange={(e)=>setReelNo(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Reel #" />
             </div>
+            {currentStock && (
+              <div className="md:col-span-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm font-medium text-blue-900">Current Stock: {currentStock.qty} Pkts | {currentStock.weight.toFixed(2)} Kg</div>
+                <div className="text-xs text-blue-700 mt-1">Adjust quantities below to reduce stock</div>
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Qty (Pkts)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Qty (Pkts) to Reduce</label>
               <input type="number" value={qty} onChange={(e)=>setQty(e.target.value === '' ? '' : Number(e.target.value) || 0)} className="w-full px-3 py-2 border rounded text-right" min={0} step={1} placeholder="0" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Weight (Kg)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weight (Kg) to Reduce</label>
               <input type="number" value={weight} onChange={(e)=>setWeight(e.target.value === '' ? '' : Number(e.target.value) || 0)} className="w-full px-3 py-2 border rounded text-right" min={0} step="0.01" placeholder="0.00" />
             </div>
             <div>

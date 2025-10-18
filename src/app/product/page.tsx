@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Save, Search, Loader2, Edit, Trash2 } from 'lucide-react';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface Product {
   _id?: string;
@@ -104,6 +105,13 @@ export default function ProductPage() {
   useEffect(() => {
     fetchProducts();
   }, [searchQuery, searchFilter]);
+
+  // Silent auto-refresh every 10 seconds for real-time updates
+  useAutoRefresh(() => {
+    if (!isEditing && !saving && !showDeleteModal) {
+      fetchProducts();
+    }
+  }, 10000);
 
   const handleInputChange = (field: keyof Product, value: string | number | boolean) => {
     setFormData(prev => ({

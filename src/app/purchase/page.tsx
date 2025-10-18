@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Package, Plus, Save, Trash2 } from 'lucide-react';
+import { useAutoRefresh } from '@/hooks/useAutoRefresh';
 
 interface PurchaseItem {
   store: string;
@@ -129,6 +130,16 @@ export default function PurchasePage() {
     }
   };
 
+  const loadStores = async () => {
+    try {
+      const stRes = await fetch('/api/stores?status=Active');
+      const stData = await stRes.json();
+      if (stRes.ok) setStores(stData.stores || []);
+    } catch (e) {
+      console.error('Error loading stores:', e);
+    }
+  };
+
   useEffect(() => {
     // Load products and suppliers for dropdowns only - don't auto-load invoices
     (async () => {
@@ -152,6 +163,13 @@ export default function PurchasePage() {
         console.error('Error loading products/suppliers:', e);
       }
     })();
+
+    // Listen for store updates from other pages
+    const handleStoreUpdate = () => {
+      loadStores();
+    };
+    window.addEventListener('storeUpdated', handleStoreUpdate);
+    return () => window.removeEventListener('storeUpdated', handleStoreUpdate);
   }, []);
 
   // Auto-load recent purchases on initial mount with current date filters (To defaults to today)
@@ -159,6 +177,13 @@ export default function PurchasePage() {
     fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Silent auto-refresh every 10 seconds for real-time invoice updates
+  useAutoRefresh(() => {
+    if (!saving) {
+      fetchInvoices();
+    }
+  }, 10000);
 
   // Keep currentItem.store in sync when store is locked/unlocked or changes
   useEffect(() => {
@@ -1170,6 +1195,7 @@ export default function PurchasePage() {
                                         <body>
                                           <div class="container">
                                             <div class="header">
+                                              <h1 style="margin:0 0 8px 0;font-size:24px;color:#1a1a1a;">Amir Traders</h1>
                                               <h2 style="margin:0 0 4px 0;">Purchase Invoice</h2>
                                               <div style="font-size:12px;color:#444;">Invoice #: ${inv.invoiceNumber || 'N/A'}</div>
                                               <div style="font-size:12px;color:#444;">Date: ${inv.date?.toString()?.slice(0, 10) || 'N/A'}</div>
