@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Package, Plus, Save, Trash2 } from 'lucide-react';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface PurchaseItem {
   store: string;
@@ -168,13 +169,15 @@ export default function PurchasePage() {
       }
     })();
 
-    // Listen for store updates from other pages
-    const handleStoreUpdate = (e: Event) => {
-      console.log('🔔 Purchase page received storeUpdated event', e);
+    // Listen for store updates from other tabs/windows (production-ready)
+    const unsubscribe = onStoreUpdated(() => {
+      console.log('🔔 Purchase page received storeUpdated event (cross-tab)');
       loadStores();
+    });
+    
+    return () => {
+      unsubscribe();
     };
-    window.addEventListener('storeUpdated', handleStoreUpdate);
-    return () => window.removeEventListener('storeUpdated', handleStoreUpdate);
   }, []);
 
   // Auto-load recent purchases on initial mount with current date filters (To defaults to today)

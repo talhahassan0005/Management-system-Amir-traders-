@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Option { _id: string; label: string }
 
@@ -42,12 +43,11 @@ export default function StoreOutPage() {
       } catch {}
     })();
 
-    // Listen for store updates
-    const handleStoreUpdate = () => {
+    // Listen for store updates (cross-tab)
+    const unsubscribe = onStoreUpdated(() => {
       loadStores();
-    };
-    window.addEventListener('storeUpdated', handleStoreUpdate);
-    return () => window.removeEventListener('storeUpdated', handleStoreUpdate);
+    });
+    return () => unsubscribe();
   }, []);
 
   // Fetch current stock when store and product are selected

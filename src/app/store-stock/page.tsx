@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Row {
   store: string;
@@ -44,14 +45,13 @@ export default function StoreStockPage() {
   useEffect(() => { 
     loadStores();
     
-    // Listen for store updates
-    const handleStoreUpdate = () => {
+    // Listen for store updates (cross-tab)
+    const unsubscribe = onStoreUpdated(() => {
       loadStores();
-    };
-    window.addEventListener('storeUpdated', handleStoreUpdate);
+    });
     
     return () => {
-      window.removeEventListener('storeUpdated', handleStoreUpdate);
+      unsubscribe();
     };
   }, []);
   useEffect(() => { load(); }, [store]);

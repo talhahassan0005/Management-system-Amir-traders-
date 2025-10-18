@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Filter as FilterIcon, RefreshCw, XCircle, Download, Printer, Search } from 'lucide-react';
 import Layout from '@/components/Layout/Layout';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface MergedRow {
   _id: string;
@@ -168,14 +169,13 @@ export default function StockReportPage() {
     useEffect(() => { 
       fetchRows();
       
-      // Listen for store updates
-      const handleStoreUpdate = () => {
+      // Listen for store updates (cross-tab)
+      const unsubscribe = onStoreUpdated(() => {
         fetchRows();
-      };
-      window.addEventListener('storeUpdated', handleStoreUpdate);
+      });
       
       return () => {
-        window.removeEventListener('storeUpdated', handleStoreUpdate);
+        unsubscribe();
       };
     }, []); // initial load
 

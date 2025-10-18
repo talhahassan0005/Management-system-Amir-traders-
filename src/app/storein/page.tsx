@@ -3,6 +3,7 @@
 import { useEffect, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Plus, Trash2, Loader2, Save } from 'lucide-react';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface StoreOpt { _id: string; store: string }
 interface ProductExt {
@@ -64,12 +65,11 @@ export default function StoreInPage() {
       } catch {}
     })();
 
-    // Listen for store updates
-    const handleStoreUpdate = () => {
+    // Listen for store updates (cross-tab)
+    const unsubscribe = onStoreUpdated(() => {
       loadStores();
-    };
-    window.addEventListener('storeUpdated', handleStoreUpdate);
-    return () => window.removeEventListener('storeUpdated', handleStoreUpdate);
+    });
+    return () => unsubscribe();
   }, []);
 
   const addItem = () => setItems(prev => [...prev, { store: globalStore || '', product: '', qty: 0, weight: 0 }]);

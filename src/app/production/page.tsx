@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Plus, Save, Trash2, Package, ArrowRight } from 'lucide-react';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Product { _id: string; item: string; description: string; length?: number; width?: number; grams?: number; type?: 'Reel' | 'Board' | string }
 interface Store { _id: string; store: string; description: string; status: string }
@@ -140,14 +141,13 @@ export default function ProductionPage() {
   useEffect(() => { 
     loadData();
     
-    // Listen for store updates
-    const handleStoreUpdate = () => {
+    // Listen for store updates (cross-tab)
+    const unsubscribe = onStoreUpdated(() => {
       loadStores();
-    };
-    window.addEventListener('storeUpdated', handleStoreUpdate);
+    });
     
     return () => {
-      window.removeEventListener('storeUpdated', handleStoreUpdate);
+      unsubscribe();
     };
   }, []);
 

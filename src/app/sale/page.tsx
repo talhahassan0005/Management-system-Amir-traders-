@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Save, Plus, Printer } from 'lucide-react';
 import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface SaleInvoiceItem {
   store: string;
@@ -155,15 +156,15 @@ export default function SaleInvoicePage() {
       } catch (e) { console.error('Error loading customers', e); }
     })();
 
-    // Listen for store updates
-    const handleStoreUpdate = () => {
+    // Listen for store updates (cross-tab)
+    const unsubscribe = onStoreUpdated(() => {
+      console.log('🔔 Sale page received storeUpdated event (cross-tab)');
       loadStores();
-    };
-    window.addEventListener('storeUpdated', handleStoreUpdate);
+    });
 
     // Cleanup listener
     return () => {
-      window.removeEventListener('storeUpdated', handleStoreUpdate);
+      unsubscribe();
     };
   }, []);
 

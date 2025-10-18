@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Save, Edit, Trash2, RefreshCw, PlusCircle } from 'lucide-react';
+import { emitStoreUpdated } from '@/lib/cross-tab-event-bus';
 
 interface StoreDoc {
   _id?: string;
@@ -46,9 +47,9 @@ export default function StorePage() {
       if (res.ok) {
         reset();
         fetchStores();
-        // Emit event for other pages to refresh their store dropdowns
-        console.log('✅ Store created, emitting storeUpdated event');
-        window.dispatchEvent(new CustomEvent('storeUpdated', { detail: { timestamp: Date.now() } }));
+        // Emit cross-tab event for production environments
+        console.log('✅ Store created, emitting storeUpdated event (cross-tab)');
+        emitStoreUpdated();
       }
     } finally { setSaving(false); }
   };
