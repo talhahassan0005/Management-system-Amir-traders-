@@ -86,6 +86,21 @@ pm2 save
 pm2 startup systemd -u root --hp /root
 # Follow the printed instruction (run the systemctl command) then:
 pm2 save
+
+Shortcut: automated setup script (optional)
+
+You can run a single script that installs everything (Node, PM2, Nginx, SSL), clones the repo, and starts the app:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/talhahassan0005/Management-system-Amir-traders-/main/scripts/vps_setup.sh | bash
+```
+
+Or copy the repository’s `scripts/vps_setup.sh` to the server and execute:
+
+```bash
+scp scripts/vps_setup.sh root@72.60.222.235:/root/
+ssh root@72.60.222.235 "bash /root/vps_setup.sh"
+```
 ```
 
 10) Nginx reverse proxy to Next.js (port 3000)
@@ -141,4 +156,10 @@ cd /var/www/amir-traders
 npm ci
 npm run build
 pm2 reload amir-traders
+```
+
+Alternatively, use the provided deploy script on the server:
+
+```bash
+bash /var/www/amir-traders/scripts/deploy.sh
 ```
