@@ -54,7 +54,7 @@ pm2 save
 pm2 startup systemd -u root --hp /root || true
 
 # 9) Nginx
-cat >/etc/nginx/sites-available/${APP_NAME}.conf <<EOF
+cat >/etc/nginx/sites-available/${APP_NAME}.conf <<'EOF'
 server {
   listen 80;
   server_name ${DOMAIN_MAIN} ${DOMAIN_WWW};
