@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 import Layout from '@/components/Layout/Layout';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Printer } from 'lucide-react';
 
 type PartyType = 'Customer' | 'Supplier';
 type Mode = 'Cash' | 'Bank' | 'Cheque';
@@ -31,6 +31,12 @@ export default function PaymentPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
 
   const [form, setForm] = useState<Payment>({
     date: new Date().toISOString().slice(0,10),
@@ -70,23 +76,42 @@ export default function PaymentPage() {
     }
   };
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const url = `/api/payments?page=${currentPage}&limit=${PAGE_LIMIT}&q=${search}`;
+
     try {
-      setLoading(true);
-      const res = await fetch('/api/payments', { cache: 'no-store' });
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
-      if (res.ok) setPayments(data.payments || []);
-      else console.error('Failed to load payments:', data.error);
+      if (res.ok) {
+        setPayments(prev => isNewSearch ? data.payments : [...prev, ...data.payments]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      } else {
+        console.error('Failed to load payments:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch payments.');
+      }
     } catch (e) {
       console.error('Error fetching payments:', e);
+      setErrorMsg('An unexpected error occurred.');
     } finally {
+      setIsFetching(false);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPayments();
+    fetchPayments(true);
     loadParties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = () => {
@@ -110,7 +135,7 @@ export default function PaymentPage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save payment'); return; }
-      await fetchPayments();
+      await fetchPayments(true);
       resetForm();
       setSuccessMsg('Payment saved');
     } catch (e) {
@@ -149,7 +174,7 @@ export default function PaymentPage() {
         return;
       }
       if (selected?._id === id) resetForm();
-      await fetchPayments();
+      await fetchPayments(true);
     } catch (e) {
       console.error('Error deleting payment:', e);
       setErrorMsg('Unexpected error while deleting');
@@ -159,7 +184,7 @@ export default function PaymentPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Payment Management</h1>
             <p className="text-gray-600">Manage customer and supplier payments</p>
@@ -169,7 +194,7 @@ export default function PaymentPage() {
 
         <div className="grid grid-cols-1 gap-6">
           {/* Payment Management Form - Increased width */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-4xl mx-auto w-full">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-4xl mx-auto w-full payment-print">
             {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 mb-4">{errorMsg}</div>}
             {successMsg && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200 mb-4">{successMsg}</div>}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -228,7 +253,11 @@ export default function PaymentPage() {
                 <input type="text" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Optional" />
               </div>
             </div>
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => window.print()} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
+                <Printer className="w-5 h-5" />
+                <span>Print</span>
+              </button>
               <button onClick={save} disabled={saving} className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50">
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 <span>{saving ? 'Saving...' : selected?._id ? 'Update Payment' : 'Save Payment'}</span>
@@ -253,10 +282,20 @@ export default function PaymentPage() {
                 placeholder="Voucher #, party, mode, amount, notes..."
               />
             </div>
+            <button
+              onClick={() => fetchPayments(true)}
+              disabled={isFetching}
+              className="h-10 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isFetching ? 'Searching...' : 'Search'}
+            </button>
             {search && (
               <button
-                onClick={() => setSearch('')}
-                className="mt-6 h-10 px-3 rounded-lg border bg-gray-50 hover:bg-gray-100 text-gray-700"
+                onClick={() => {
+                  setSearch('');
+                  fetchPayments(true);
+                }}
+                className="h-10 px-3 rounded-lg border bg-gray-50 hover:bg-gray-100 text-gray-700"
               >
                 Clear
               </button>
@@ -276,26 +315,12 @@ export default function PaymentPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {loading && payments.length === 0 ? (
                   <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : payments.length === 0 ? (
                   <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">No payments found</td></tr>
                 ) : (
-                  // Filter payments with free-text search
-                  payments
-                    .filter((p) => {
-                      const q = (search || '').trim().toLowerCase();
-                      if (!q) return true;
-                      const vn = String(p.voucherNumber || '').toLowerCase();
-                      const date = String(p.date || '').slice(0,10).toLowerCase();
-                      const mode = String(p.mode || '').toLowerCase();
-                      const ptype = String(p.partyType || '').toLowerCase();
-                      const plabel = (partyLabelMap.get(p.partyId) || '').toLowerCase();
-                      const amt = String(p.amount || '').toLowerCase();
-                      const notes = String(p.notes || '').toLowerCase();
-                      return vn.includes(q) || date.includes(q) || mode.includes(q) || ptype.includes(q) || plabel.includes(q) || amt.includes(q) || notes.includes(q);
-                    })
-                    .map((p) => (
+                  payments.map((p) => (
                     <tr key={p._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.voucherNumber}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.date?.toString()?.slice(0,10)}</td>
@@ -319,6 +344,17 @@ export default function PaymentPage() {
                 )}
               </tbody>
             </table>
+            {hasMore && (
+              <div className="text-center py-4">
+                <button
+                  onClick={() => fetchPayments()}
+                  disabled={isFetching}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                >
+                  {isFetching ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

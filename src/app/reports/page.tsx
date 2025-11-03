@@ -1,247 +1,84 @@
-'use client';
-
-import { useState } from 'react';
+import Link from 'next/link';
 import Layout from '@/components/Layout/Layout';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Download, Calendar, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  Layers,
+  FileText,
+  Wallet,
+  CreditCard,
+  ClipboardList,
+  TrendingUp,
+  TrendingDown,
+  BarChart2,
+  PieChart,
+  Users,
+} from 'lucide-react';
 
-const salesData = [
-  { month: 'Jan', sales: 4000, orders: 24 },
-  { month: 'Feb', sales: 3000, orders: 13 },
-  { month: 'Mar', sales: 5000, orders: 20 },
-  { month: 'Apr', sales: 4500, orders: 18 },
-  { month: 'May', sales: 6000, orders: 28 },
-  { month: 'Jun', sales: 5500, orders: 25 },
-  { month: 'Jul', sales: 7000, orders: 32 },
-  { month: 'Aug', sales: 6500, orders: 30 },
-  { month: 'Sep', sales: 8000, orders: 35 },
-  { month: 'Oct', sales: 7500, orders: 33 },
-  { month: 'Nov', sales: 9000, orders: 40 },
-  { month: 'Dec', sales: 8500, orders: 38 },
+type ReportCard = { name: string; href: string; desc: string; icon: 'layers'|'file'|'wallet'|'credit'|'clipboard'|'up'|'down'|'bar'|'pie'|'users' };
+
+const reports: ReportCard[] = [
+  { name: 'Inventory Valuation', href: '/reports/inventory-valuation', desc: 'Open Inventory Valuation', icon: 'layers' },
+  { name: 'Income Statement', href: '/reports/income-statement', desc: 'Open Income Statement', icon: 'file' },
+  { name: 'Balance Sheet', href: '/reports/balance-sheet', desc: 'Open Balance Sheet', icon: 'file' },
+  { name: 'Receivables', href: '/reports/receivables', desc: 'Open Receivables', icon: 'wallet' },
+  { name: 'Payables', href: '/reports/payables', desc: 'Open Payables', icon: 'credit' },
+  { name: 'Cash Inflow/Outflow', href: '/reports/cash-inflow-outflow', desc: 'Open Cash Inflow/Outflow', icon: 'wallet' },
+  { name: 'Expense Recording', href: '/reports/expense-recording', desc: 'Open Expense Recording', icon: 'clipboard' },
+  { name: 'Trial Balance', href: '/reports/trial-balance', desc: 'Open Trial Balance', icon: 'file' },
+  { name: 'Cash Sales Value', href: '/reports/cash-sales-value', desc: 'Open Cash Sales Value', icon: 'up' },
+  { name: 'Credit Sales Value', href: '/reports/credit-sales-value', desc: 'Open Credit Sales Value', icon: 'down' },
+  { name: 'High Sale Product', href: '/reports/high-sale-product', desc: 'Open High Sale Product', icon: 'bar' },
+  { name: 'Low Sale Product', href: '/reports/low-sale-product', desc: 'Open Low Sale Product', icon: 'bar' },
+  { name: 'Graphs', href: '/reports/graphs', desc: 'Open Graphs', icon: 'pie' },
+  { name: 'Item-wise PnL', href: '/reports/item-wise-pnl', desc: 'Open Item-wise PnL', icon: 'bar' },
+  { name: 'Customer-wise Profits', href: '/reports/customer-wise-profits', desc: 'Open Customer-wise Profits', icon: 'users' },
+  { name: 'Inventory Valuation (detailed)', href: '/reports/inventory-valuation-detailed', desc: 'Open Inventory Valuation (detailed)', icon: 'layers' },
 ];
 
-const categoryData = [
-  { name: 'Electronics', value: 45, color: '#3b82f6' },
-  { name: 'Accessories', value: 30, color: '#10b981' },
-  { name: 'Clothing', value: 15, color: '#f59e0b' },
-  { name: 'Books', value: 10, color: '#ef4444' },
-];
+const IconFor = ({ icon }: { icon: ReportCard['icon'] }) => {
+  const common = 'w-6 h-6';
+  switch (icon) {
+    case 'layers': return <Layers className={common} />;
+    case 'file': return <FileText className={common} />;
+    case 'wallet': return <Wallet className={common} />;
+    case 'credit': return <CreditCard className={common} />;
+    case 'clipboard': return <ClipboardList className={common} />;
+    case 'up': return <TrendingUp className={common} />;
+    case 'down': return <TrendingDown className={common} />;
+    case 'bar': return <BarChart2 className={common} />;
+    case 'pie': return <PieChart className={common} />;
+    case 'users': return <Users className={common} />;
+    default: return <FileText className={common} />;
+  }
+};
 
-const topProducts = [
-  { name: 'Wireless Headphones', sales: 1250, revenue: 124750 },
-  { name: 'Laptop Stand', sales: 980, revenue: 48902 },
-  { name: 'Mechanical Keyboard', sales: 750, revenue: 97425 },
-  { name: 'USB-C Cable', sales: 1200, revenue: 23988 },
-  { name: 'Monitor 24"', sales: 320, revenue: 95968 },
-];
-
-export default function ReportsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('12months');
-
+export default function ReportsIndex() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-            <p className="text-gray-600">Track your business performance and insights</p>
-          </div>
-          <div className="flex items-center space-x-3">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        <div>
+          <h1 className="text-2xl font-bold">Reports</h1>
+          <p className="text-gray-600">Access financial and inventory reports</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {reports.map((r) => (
+            <Link
+              key={r.href}
+              href={r.href}
+              className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              <option value="7days">Last 7 days</option>
-              <option value="30days">Last 30 days</option>
-              <option value="3months">Last 3 months</option>
-              <option value="12months">Last 12 months</option>
-            </select>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                <p className="text-3xl font-bold text-gray-900">PKR 85,500</p>
-                <div className="flex items-center mt-2">
-                  <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                  <span className="text-sm text-green-600">+12.5%</span>
-                  <span className="text-sm text-gray-500 ml-1">vs last period</span>
+              <div className="flex items-start gap-4">
+                <div className="rounded-lg bg-blue-50 p-3 text-blue-600 ring-1 ring-inset ring-blue-100">
+                  <IconFor icon={r.icon} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-gray-900 truncate">{r.name}</h3>
+                  <p className="mt-1 text-sm text-gray-600 line-clamp-1">{r.desc}</p>
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                <p className="text-3xl font-bold text-gray-900">1,234</p>
-                <div className="flex items-center mt-2">
-                  <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                  <span className="text-sm text-green-600">+8.2%</span>
-                  <span className="text-sm text-gray-500 ml-1">vs last period</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Average Order Value</p>
-                <p className="text-3xl font-bold text-gray-900">PKR 69.30</p>
-                <div className="flex items-center mt-2">
-                  <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                  <span className="text-sm text-red-600">-2.1%</span>
-                  <span className="text-sm text-gray-500 ml-1">vs last period</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-                <p className="text-3xl font-bold text-gray-900">3.2%</p>
-                <div className="flex items-center mt-2">
-                  <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-                  <span className="text-sm text-green-600">+0.5%</span>
-                  <span className="text-sm text-gray-500 ml-1">vs last period</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Sales Chart */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Monthly Sales</h3>
-              <p className="text-sm text-gray-600">Revenue and order trends over time</p>
-            </div>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                  <YAxis stroke="#6b7280" fontSize={12} tickFormatter={(value) => `PKR ${value}`} />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                    }}
-                    formatter={(value: number, name: string) => [
-                      name === 'sales' ? `PKR ${value}` : value,
-                      name === 'sales' ? 'Sales' : 'Orders'
-                    ]}
-                  />
-                  <Bar dataKey="sales" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Category Distribution */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Sales by Category</h3>
-              <p className="text-sm text-gray-600">Product category performance</p>
-            </div>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(props: any) => `${props?.name ?? ''} ${(((props?.percent as number) ?? 0) * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Products */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Top Performing Products</h3>
-            <p className="text-sm text-gray-600">Best selling products by revenue</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Units Sold
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Revenue
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Performance
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {topProducts.map((product, index) => (
-                  <tr key={product.name} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-blue-600 font-medium text-sm">{index + 1}</span>
-                        </div>
-                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {product.sales.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      PKR {product.revenue.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${(product.revenue / topProducts[0].revenue) * 100}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-600">
-                          {((product.revenue / topProducts[0].revenue) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-blue-500/0 opacity-0 transition-opacity group-hover:opacity-100" />
+            </Link>
+          ))}
         </div>
       </div>
     </Layout>

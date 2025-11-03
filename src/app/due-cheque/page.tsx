@@ -35,6 +35,12 @@ export default function DueChequePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
+
   const [form, setForm] = useState<Cheque>({
     chequeNo: '', bank: '', partyType: 'Customer', partyId: '', amount: 0, issueDate: new Date().toISOString().slice(0,10), dueDate: new Date().toISOString().slice(0,10), status: 'Due', notes: ''
   });
@@ -53,17 +59,43 @@ export default function DueChequePage() {
     } catch (e) { console.error('Failed to load parties', e); }
   };
 
-  const fetchCheques = async () => {
+  const fetchCheques = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const url = `/api/cheques?status=Due&page=${currentPage}&limit=${PAGE_LIMIT}`;
+
     try {
-      setLoading(true);
-      const res = await fetch('/api/cheques?status=Due');
+      const res = await fetch(url);
       const data = await res.json();
-      if (res.ok) setCheques(data.cheques || []);
-      else console.error('Failed to load cheques:', data.error);
-    } catch (e) { console.error('Error fetching cheques:', e); } finally { setLoading(false); }
+      if (res.ok) {
+        setCheques(prev => isNewSearch ? data.cheques : [...prev, ...data.cheques]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      } else {
+        console.error('Failed to load cheques:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch cheques.');
+      }
+    } catch (e) {
+      console.error('Error fetching cheques:', e);
+      setErrorMsg('An unexpected error occurred.');
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchCheques(); loadParties(); }, []);
+  useEffect(() => { 
+    fetchCheques(true); 
+    loadParties(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resetForm = () => {
     setSelected(null);
@@ -83,7 +115,7 @@ export default function DueChequePage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save cheque'); return; }
-      await fetchCheques(); resetForm(); setSuccessMsg('Cheque saved');
+      await fetchCheques(true); resetForm(); setSuccessMsg('Cheque saved');
     } catch (e) { console.error('Error saving cheque:', e); setErrorMsg('Unexpected error while saving'); }
     finally { setSaving(false); }
   };
@@ -98,7 +130,7 @@ export default function DueChequePage() {
       const res = await fetch(`/api/cheques/${id}`, { method: 'DELETE' });
       if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to delete'); return; }
       if (selected?._id === id) resetForm();
-      await fetchCheques();
+      await fetchCheques(true);
     } catch (e) { console.error('Error deleting cheque:', e); setErrorMsg('Unexpected error while deleting'); }
   };
 
@@ -106,7 +138,7 @@ export default function DueChequePage() {
     try {
       const res = await fetch(`/api/cheques/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
       if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to update status'); return; }
-      await fetchCheques();
+      await fetchCheques(true);
     } catch (e) { console.error('Error updating status:', e); setErrorMsg('Unexpected error while updating'); }
   };
 
@@ -118,14 +150,10 @@ export default function DueChequePage() {
             <h1 className="text-2xl font-bold text-gray-900">Due Cheque Management</h1>
             <p className="text-gray-600">Manage due cheques and payment tracking</p>
           </div>
-          <button onClick={resetForm} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>New Due Cheque</span>
-          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
               {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">{errorMsg}</div>}
               {successMsg && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200">{successMsg}</div>}
@@ -178,7 +206,7 @@ export default function DueChequePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="lg:col-span-3 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Due Cheques</h3>
             </div>
@@ -194,7 +222,7 @@ export default function DueChequePage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+                  {loading && cheques.length === 0 ? (
                     <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                   ) : cheques.length === 0 ? (
                     <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No due cheques</td></tr>
@@ -207,7 +235,7 @@ export default function DueChequePage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.amount?.toFixed?.(2) || c.amount}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center space-x-2">
-                            <button onClick={() => setSelected(c)} className="text-blue-600 hover:text-blue-900">Edit</button>
+                            <button onClick={() => edit(c)} className="text-blue-600 hover:text-blue-900">Edit</button>
                             <button onClick={() => c._id && remove(c._id)} className="text-red-600 hover:text-red-900">Delete</button>
                             <button onClick={() => c._id && mark(c._id, 'Paid')} className="text-green-600 hover:text-green-800">Mark Paid</button>
                             <button onClick={() => c._id && mark(c._id, 'Bounced')} className="text-yellow-700 hover:text-yellow-900">Bounced</button>
@@ -218,6 +246,17 @@ export default function DueChequePage() {
                   )}
                 </tbody>
               </table>
+              {hasMore && (
+                <div className="text-center py-4">
+                  <button
+                    onClick={() => fetchCheques()}
+                    disabled={isFetching}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                  >
+                    {isFetching ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

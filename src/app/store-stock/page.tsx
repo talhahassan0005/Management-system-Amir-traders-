@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import Layout from '@/components/Layout/Layout';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
+import { onStoreUpdated, onStockUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Row {
   store: string;
@@ -16,12 +15,17 @@ interface Row {
   purchasedWeight: number; soldWeight: number; currentWeight: number;
 }
 
+const PAGE_LIMIT = 100;
+
 export default function StoreStockPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   const [store, setStore] = useState('');
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
 
   const loadStores = async () => {
     try {
@@ -31,35 +35,63 @@ export default function StoreStockPage() {
     } catch {}
   };
 
-  const load = async () => {
+  const fetchData = useCallback(async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const params = new URLSearchParams();
+    if (store) params.set('store', store);
+    params.set('page', String(currentPage));
+    params.set('limit', String(PAGE_LIMIT));
+
+    const url = `/api/store-stock?${params.toString()}`;
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (store) params.set('store', store);
-      const res = await fetch(`/api/store-stock?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) setRows(data.data || []);
-    } finally { setLoading(false); }
-  };
+      const res = await fetch(url);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        console.error('store-stock: server error', res.status, body);
+        setRows([]);
+        setHasMore(false);
+        return;
+      }
+      const result = await res.json();
+      const newRows = result.data || [];
+      
+      setRows(prev => isNewSearch ? newRows : [...prev, ...newRows]);
+      setHasMore(result.pagination?.hasMore || false);
+      if (isNewSearch) {
+        setPage(2);
+      } else {
+        setPage(prev => prev + 1);
+      }
+    } catch (fetchErr) {
+      console.error('store-stock: failed to fetch', fetchErr);
+      setRows([]);
+      setHasMore(false);
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
+    }
+  }, [store, page, isFetching]);
 
   useEffect(() => { 
     loadStores();
-    
-    // Listen for store updates (cross-tab)
-    const unsubscribe = onStoreUpdated(() => {
-      loadStores();
-    });
-    
-    return () => {
-      unsubscribe();
-    };
+    const unsubscribe = onStoreUpdated(loadStores);
+    return unsubscribe;
   }, []);
-  useEffect(() => { load(); }, [store]);
 
-  // Silent auto-refresh every 10 seconds for real-time stock updates
-  useAutoRefresh(() => {
-    if (!loading) load();
-  }, 10000);
+  useEffect(() => {
+    fetchData(true);
+  }, [store]);
+
+  useEffect(() => {
+    const unsub = onStockUpdated(() => {
+      if (!isFetching) fetchData(true);
+    });
+    return unsub;
+  }, [store, isFetching, fetchData]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -71,6 +103,12 @@ export default function StoreStockPage() {
       (r.store || '').toLowerCase().includes(term)
     );
   }, [rows, q]);
+
+  const handleLoadMore = () => {
+    if (!isFetching && hasMore) {
+      fetchData();
+    }
+  };
 
   return (
     <Layout>
@@ -96,7 +134,9 @@ export default function StoreStockPage() {
               <input value={q} onChange={e=>setQ(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Search item/description/brand" />
             </div>
             <div className="flex items-end">
-              <button onClick={load} className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Refresh</button>
+              <button onClick={() => fetchData(true)} className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" disabled={isFetching}>
+                {isFetching ? 'Refreshing...' : 'Refresh'}
+              </button>
             </div>
           </div>
         </div>
@@ -115,7 +155,7 @@ export default function StoreStockPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loading && page === 1 ? (
                   <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No records</td></tr>
@@ -138,6 +178,17 @@ export default function StoreStockPage() {
               </tbody>
             </table>
           </div>
+          {hasMore && (
+            <div className="p-4 flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={isFetching}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {isFetching ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

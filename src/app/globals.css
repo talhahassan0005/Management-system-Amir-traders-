@@ -5,12 +5,14 @@
   --foreground: #171717;
 }
 
-@theme inline {
+/* The @theme at-rule is part of Tailwind v4 theme tokens. If your toolchain flags it,
+   you can comment it out without breaking Tailwind utilities. */
+/* @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
+} */
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -65,4 +67,66 @@ textarea::-ms-input-placeholder { color: #9ca3af; }
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 12px; }
+  
+  /* Hide navigation, sidebar, and buttons when printing */
+  nav, aside, header.print\:hidden, footer.print\:hidden,
+  button:not(.print-keep), .no-print,
+  [class*="sidebar"], [class*="Sidebar"] {
+    display: none !important;
+  }
+  
+  /* Receipt and Payment print styles */
+  .receipt-print, .payment-print {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  
+  /* Clean form layout for printing */
+  .receipt-print input,
+  .payment-print input,
+  .receipt-print select,
+  .payment-print select,
+  .receipt-print textarea,
+  .payment-print textarea {
+    border: none !important;
+    border-bottom: 1px solid #000 !important;
+    background: transparent !important;
+    padding: 2px 0 !important;
+    font-size: 11px !important;
+    color: #000 !important;
+  }
+  
+  .receipt-print label,
+  .payment-print label {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #000 !important;
+  }
+  
+  /* Grid layouts for print */
+  .receipt-print .grid,
+  .payment-print .grid {
+    display: grid !important;
+    gap: 8px !important;
+  }
+  
+  /* Headers for print */
+  .receipt-print h1,
+  .payment-print h1 {
+    font-size: 18px !important;
+    text-align: center !important;
+    margin-bottom: 10px !important;
+    color: #000 !important;
+  }
+  
+  .receipt-print h2,
+  .payment-print h2 {
+    font-size: 14px !important;
+    margin-top: 10px !important;
+    margin-bottom: 8px !important;
+    color: #000 !important;
+  }
 }

@@ -32,7 +32,13 @@ export default function ReceiptChequePage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<Status | 'All'>('All');
   const [from, setFrom] = useState<string>('');
-  const [to, setTo] = useState<string>('');
+  const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10));
+
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
 
   const [form, setForm] = useState<Cheque>({
     chequeNo: '', bank: '', partyType: 'Customer', partyId: '', amount: 0, issueDate: new Date().toISOString().slice(0,10), dueDate: new Date().toISOString().slice(0,10), status: 'Due', notes: ''
@@ -48,23 +54,53 @@ export default function ReceiptChequePage() {
     } catch (e) { console.error('Failed to load customers', e); }
   };
 
-  const fetchCheques = async () => {
+  const fetchCheques = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const params = new URLSearchParams();
+    params.set('partyType', 'Customer');
+    if (statusFilter !== 'All') params.set('status', statusFilter);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    params.set('page', currentPage.toString());
+    params.set('limit', PAGE_LIMIT.toString());
+
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      params.set('partyType', 'Customer');
-      if (statusFilter !== 'All') params.set('status', statusFilter);
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
       const res = await fetch(`/api/cheques?${params.toString()}`);
       const data = await res.json();
-      if (res.ok) setCheques(data.cheques || []);
-      else console.error('Failed to load cheques:', data.error);
-    } catch (e) { console.error('Error fetching cheques:', e); } finally { setLoading(false); }
+      if (res.ok) {
+        setCheques(prev => isNewSearch ? data.cheques : [...prev, ...data.cheques]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      } else {
+        console.error('Failed to load cheques:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch cheques.');
+      }
+    } catch (e) {
+      console.error('Error fetching cheques:', e);
+      setErrorMsg('An unexpected error occurred.');
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchCheques(); loadCustomers(); }, []);
-  useEffect(() => { fetchCheques(); /* refetch on filters */ }, [statusFilter, from, to]);
+  useEffect(() => { 
+    fetchCheques(true); 
+    loadCustomers(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => { 
+    fetchCheques(true); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, from, to]);
 
   const resetForm = () => {
     setSelected(null);
@@ -84,7 +120,7 @@ export default function ReceiptChequePage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save cheque'); return; }
-      await fetchCheques(); resetForm(); setSuccessMsg('Cheque saved');
+      await fetchCheques(true); resetForm(); setSuccessMsg('Cheque saved');
     } catch (e) { console.error('Error saving cheque:', e); setErrorMsg('Unexpected error while saving'); }
     finally { setSaving(false); }
   };
@@ -99,7 +135,7 @@ export default function ReceiptChequePage() {
       const res = await fetch(`/api/cheques/${id}`, { method: 'DELETE' });
       if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to delete'); return; }
       if (selected?._id === id) resetForm();
-      await fetchCheques();
+      await fetchCheques(true);
     } catch (e) { console.error('Error deleting cheque:', e); setErrorMsg('Unexpected error while deleting'); }
   };
 
@@ -107,7 +143,7 @@ export default function ReceiptChequePage() {
     try {
       const res = await fetch(`/api/cheques/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
       if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to update status'); return; }
-      await fetchCheques();
+      await fetchCheques(true);
     } catch (e) { console.error('Error updating status:', e); setErrorMsg('Unexpected error while updating'); }
   };
 
@@ -119,14 +155,10 @@ export default function ReceiptChequePage() {
             <h1 className="text-2xl font-bold text-gray-900">Receipt Cheque Management</h1>
             <p className="text-gray-600">Manage customer receipt cheques</p>
           </div>
-          <button onClick={resetForm} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
-            <Plus className="w-4 h-4" />
-            <span>New Receipt Cheque</span>
-          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+          <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
               {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">{errorMsg}</div>}
               {successMsg && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200">{successMsg}</div>}
@@ -172,49 +204,49 @@ export default function ReceiptChequePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="lg:col-span-1 bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Receipt Cheques</h3>
             </div>
-            <div className="flex gap-2 mb-3">
-              <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value as any)} className="px-3 py-2 border rounded-lg">
-                <option value="All">All</option>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value as any)} className="px-3 py-2 border rounded-lg text-sm">
+                <option value="All">All Status</option>
                 <option value="Due">Due</option>
                 <option value="Paid">Paid</option>
                 <option value="Bounced">Bounced</option>
               </select>
-              <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="px-3 py-2 border rounded-lg" />
-              <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="px-3 py-2 border rounded-lg" />
+              <input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="px-3 py-2 border rounded-lg text-sm" placeholder="From" />
+              <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="px-3 py-2 border rounded-lg text-sm" placeholder="To" />
             </div>
             <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cheque</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3"></th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cheque</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+                  {loading && cheques.length === 0 ? (
                     <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                   ) : cheques.length === 0 ? (
-                    <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No cheques</td></tr>
+                    <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No cheques found</td></tr>
                   ) : (
                     cheques.map((c) => (
                       <tr key={c._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.chequeNo}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.bank}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.dueDate?.toString()?.slice(0,10)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.amount?.toFixed?.(2) || c.amount}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button onClick={() => setSelected(c)} className="text-blue-600 hover:text-blue-900">Edit</button>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{c.chequeNo}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{c.bank}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{c.dueDate?.toString()?.slice(0,10)}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{c.amount?.toFixed?.(2) || c.amount}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button onClick={() => edit(c)} className="text-blue-600 hover:text-blue-900">Edit</button>
                             <button onClick={() => c._id && remove(c._id)} className="text-red-600 hover:text-red-900">Delete</button>
-                            {c.status !== 'Paid' && (<button onClick={() => c._id && mark(c._id, 'Paid')} className="text-green-600 hover:text-green-800">Mark Paid</button>)}
-                            {c.status !== 'Bounced' && (<button onClick={() => c._id && mark(c._id, 'Bounced')} className="text-yellow-700 hover:text-yellow-900">Bounced</button>)}
+                            {c.status !== 'Paid' && (<button onClick={() => c._id && mark(c._id, 'Paid')} className="text-green-600 hover:text-green-800">Paid</button>)}
+                            {c.status !== 'Bounced' && (<button onClick={() => c._id && mark(c._id, 'Bounced')} className="text-yellow-700 hover:text-yellow-900">Bounce</button>)}
                           </div>
                         </td>
                       </tr>
@@ -222,6 +254,17 @@ export default function ReceiptChequePage() {
                   )}
                 </tbody>
               </table>
+              {hasMore && (
+                <div className="text-center py-4">
+                  <button
+                    onClick={() => fetchCheques()}
+                    disabled={isFetching}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                  >
+                    {isFetching ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

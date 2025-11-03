@@ -14,17 +14,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get('storeId');
     const productId = searchParams.get('productId');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam) : 0; // 0 means no limit
 
     const query: any = {};
     if (storeId) query.storeId = storeId;
     if (productId) query.productId = productId;
 
-    const stocks = await Stock.find(query)
+    let stockQuery = Stock.find(query)
       .populate('productId', 'item description')
       .populate('storeId', 'store description')
-      .limit(limit)
       .sort({ createdAt: -1 });
+    
+    if (limit > 0) {
+      stockQuery = stockQuery.limit(limit);
+    }
+    
+    const stocks = await stockQuery;
 
     // If a specific product+store was requested but no stock doc exists,
     // fall back to aggregated quantity from purchases - sales by names

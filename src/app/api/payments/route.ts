@@ -65,7 +65,9 @@ export async function GET(request: NextRequest) {
       return obj;
     });
 
-    return NextResponse.json({ payments: enriched, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    const hasMore = page * limit < total;
+
+    return NextResponse.json({ payments: enriched, pagination: { page, limit, total, pages: Math.ceil(total / limit), hasMore } });
   } catch (error) {
     console.error('Error fetching payments:', error);
     return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });

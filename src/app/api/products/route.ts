@@ -3,6 +3,7 @@ export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
+import { emitStockUpdated } from '@/lib/cross-tab-event-bus';
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,6 +84,10 @@ export async function POST(request: NextRequest) {
     const product = new Product(body);
     await product.save();
     console.log('✅ Product created in MongoDB');
+    
+    // Emit stock updated event
+    emitStockUpdated();
+    
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
     console.error('Error creating product:', error);

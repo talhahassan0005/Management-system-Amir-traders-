@@ -3,7 +3,7 @@
 import { useEffect, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Plus, Trash2, Loader2, Save } from 'lucide-react';
-import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
+import { onStoreUpdated, emitStockUpdated } from '@/lib/cross-tab-event-bus';
 
 interface StoreOpt { _id: string; store: string }
 interface ProductExt {
@@ -187,8 +187,10 @@ export default function StoreInPage() {
           return;
         }
       }
-      setSuccessMsg('Stock added successfully');
-      reset();
+  setSuccessMsg('Stock added successfully');
+  // Notify other tabs/pages that stock changed so they can refresh on demand
+  try { emitStockUpdated(); } catch (e) {}
+  reset();
     } catch {
       setErrorMsg('Unexpected error while adding stock');
     } finally { setSaving(false); }

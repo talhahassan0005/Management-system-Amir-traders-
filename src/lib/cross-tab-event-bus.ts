@@ -155,3 +155,78 @@ export const onCustomerUpdated = (callback: Function) => crossTabEventBus.on('cu
 
 export const emitSupplierUpdated = () => crossTabEventBus.emit('supplierUpdated');
 export const onSupplierUpdated = (callback: Function) => crossTabEventBus.on('supplierUpdated', callback);
+
+// Stock update events: emitted when stock is added or reduced so listeners (eg. Store Stock page)
+// can refresh on-demand instead of polling.
+export const emitStockUpdated = () => {
+  console.log('📦 Emitting stockUpdated event');
+  crossTabEventBus.emit('stockUpdated');
+};
+
+export const onStockUpdated = (callback: Function) => {
+  return crossTabEventBus.on('stockUpdated', callback);
+};
+
+// Sale Invoice events
+export const emitSaleInvoiceAdded = () => {
+  console.log('📄 Emitting saleInvoiceAdded event');
+  crossTabEventBus.emit('saleInvoiceAdded');
+};
+
+export const emitSaleInvoiceUpdated = () => {
+  console.log('📝 Emitting saleInvoiceUpdated event');
+  crossTabEventBus.emit('saleInvoiceUpdated');
+};
+
+export const emitSaleInvoiceDeleted = () => {
+  console.log('🗑️ Emitting saleInvoiceDeleted event');
+  crossTabEventBus.emit('saleInvoiceDeleted');
+};
+
+export const onSaleInvoiceChanged = (callback: Function) => {
+  const unsub1 = crossTabEventBus.on('saleInvoiceAdded', callback);
+  const unsub2 = crossTabEventBus.on('saleInvoiceUpdated', callback);
+  const unsub3 = crossTabEventBus.on('saleInvoiceDeleted', callback);
+  return () => {
+    unsub1();
+    unsub2();
+    unsub3();
+  };
+};
+
+// Purchase Invoice events
+export const emitPurchaseInvoiceAdded = () => {
+  console.log('📦 Emitting purchaseInvoiceAdded event');
+  crossTabEventBus.emit('purchaseInvoiceAdded');
+};
+
+export const onPurchaseInvoiceChanged = (callback: Function) => {
+  return crossTabEventBus.on('purchaseInvoiceAdded', callback);
+};
+
+// Production events
+export const emitProductionAdded = () => {
+  console.log('🏭 Emitting productionAdded event');
+  crossTabEventBus.emit('productionAdded');
+};
+
+export const emitProductionUpdated = () => {
+  console.log('🏭 Emitting productionUpdated event');
+  crossTabEventBus.emit('productionUpdated');
+};
+
+export const emitProductionDeleted = () => {
+  console.log('🏭 Emitting productionDeleted event');
+  crossTabEventBus.emit('productionDeleted');
+};
+
+export const onProductionChanged = (callback: Function) => {
+  const unsub1 = crossTabEventBus.on('productionAdded', callback);
+  const unsub2 = crossTabEventBus.on('productionUpdated', callback);
+  const unsub3 = crossTabEventBus.on('productionDeleted', callback);
+  return () => {
+    unsub1();
+    unsub2();
+    unsub3();
+  };
+};

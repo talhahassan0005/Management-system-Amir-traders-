@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     const data = await Cheque.find(query).sort({ dueDate: 1 }).skip(skip).limit(limit);
     const total = await Cheque.countDocuments(query);
-    return NextResponse.json({ cheques: data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    const hasMore = page * limit < total;
+    return NextResponse.json({ cheques: data, pagination: { page, limit, total, pages: Math.ceil(total / limit), hasMore } });
   } catch (error) {
     console.error('Error fetching cheques:', error);
     return NextResponse.json({ error: 'Failed to fetch cheques' }, { status: 500 });

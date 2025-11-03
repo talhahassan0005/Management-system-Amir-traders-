@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     const data = await Receipt.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
     const total = await Receipt.countDocuments(query);
-    return NextResponse.json({ receipts: data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    const hasMore = page * limit < total;
+
+    return NextResponse.json({ receipts: data, pagination: { page, limit, total, pages: Math.ceil(total / limit), hasMore } });
   } catch (error) {
     console.error('Error fetching receipts:', error);
     return NextResponse.json({ error: 'Failed to fetch receipts' }, { status: 500 });

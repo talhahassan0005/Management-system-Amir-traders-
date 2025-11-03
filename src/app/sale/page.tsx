@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Layout from '@/components/Layout/Layout';
-import { Save, Plus, Printer } from 'lucide-react';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
+import { Save, Plus, Printer, Pencil, Trash2 } from 'lucide-react';
+import { onStoreUpdated, emitSaleInvoiceAdded, emitSaleInvoiceUpdated, emitSaleInvoiceDeleted, onSaleInvoiceChanged } from '@/lib/cross-tab-event-bus';
 
 interface SaleInvoiceItem {
   store: string;
@@ -90,10 +89,20 @@ export default function SaleInvoicePage() {
   });
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
+  const [stocks, setStocks] = useState<any[]>([]);
   const [saleInvoices, setSaleInvoices] = useState<SaleInvoice[]>([]);
   const [invoice, setInvoice] = useState<SaleInvoice>(makeInitialInvoice());
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+  const [isEditingInvoice, setIsEditingInvoice] = useState(false);
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const PAGE_LIMIT = 20;
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -116,20 +125,45 @@ export default function SaleInvoicePage() {
     }
   };
 
-  const fetchSaleInvoices = async () => {
+  const fetchSaleInvoices = async (isNewSearch = false) => {
+    if (isFetching && !isNewSearch) return;
+    setIsFetching(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    
     try {
-      const response = await fetch('/api/sale-invoices?limit=100');
+      const params = new URLSearchParams();
+      if (saleSearch) {
+        params.append('search', saleSearch);
+        params.append('filter', 'invoiceNumber');
+      }
+      params.append('page', String(currentPage));
+      params.append('limit', String(PAGE_LIMIT));
+
+      const response = await fetch(`/api/sale-invoices?${params.toString()}`);
       const data = await response.json();
       
       if (response.ok) {
-        setSaleInvoices(data.invoices || []);
+        setSaleInvoices(prev => {
+          const existingIds = new Set(prev.map(inv => inv._id));
+          const newInvoices = data.invoices.filter((inv: SaleInvoice) => !existingIds.has(inv._id));
+          return isNewSearch ? data.invoices : [...prev, ...newInvoices];
+        });
+        setHasMore(data.pagination.hasMore);
+        setPage(currentPage + 1);
       } else {
         console.error('Error fetching sale invoices:', data.error);
       }
     } catch (error) {
       console.error('Error fetching sale invoices:', error);
+    } finally {
+      setIsFetching(false);
     }
   };
+
+  useEffect(() => {
+    fetchSaleInvoices(true);
+  }, [saleSearch]);
 
   // Helper function to load stores
   const loadStores = async () => {
@@ -142,9 +176,21 @@ export default function SaleInvoicePage() {
     }
   };
 
+  // Load stocks for filtering products by store
+  const loadStocks = async () => {
+    try {
+      const res = await fetch('/api/stock');
+      const data = await res.json();
+      if (res.ok) setStocks(data.stocks || []);
+    } catch (e) {
+      console.error('Error loading stocks', e);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchSaleInvoices();
+    loadStocks();
     // Load customers for dropdown
     (async () => {
       try {
@@ -160,6 +206,7 @@ export default function SaleInvoicePage() {
     const unsubscribe = onStoreUpdated(() => {
       console.log('🔔 Sale page received storeUpdated event (cross-tab)');
       loadStores();
+      loadStocks();
     });
 
     // Cleanup listener
@@ -168,12 +215,15 @@ export default function SaleInvoicePage() {
     };
   }, []);
 
-  // Silent auto-refresh every 10 seconds for real-time sale invoice updates
-  useAutoRefresh(() => {
-    if (!saving) {
-      fetchSaleInvoices();
-    }
-  }, 10000);
+  // Event-based refresh for sale invoices
+  useEffect(() => {
+    const unsubscribe = onSaleInvoiceChanged(() => {
+      if (!saving) {
+        fetchSaleInvoices(true);
+      }
+    });
+    return () => unsubscribe();
+  }, [saving]);
 
   // Auto-fetch customer balance when customer changes
   useEffect(() => {
@@ -298,12 +348,57 @@ export default function SaleInvoicePage() {
     fetchStock();
   }, [currentItem.store, currentItem.product]);
 
+  // Filter products based on selected store in currentItem
+  useEffect(() => {
+    const storeName = (currentItem.store || '').trim();
+    if (!storeName || stocks.length === 0) {
+      setAvailableProducts(products);
+      return;
+    }
+
+    // Find the store object
+    const storeObj = stores.find((s: any) => s.store === storeName);
+    if (!storeObj) {
+      setAvailableProducts(products);
+      return;
+    }
+
+    // Filter stocks for this store
+    const storeStocks = stocks.filter((stock: any) => 
+      stock.storeId?._id === storeObj._id || stock.storeId === storeObj._id
+    );
+
+    // Get product IDs that have stock in this store
+    const productIdsInStore = storeStocks.map((stock: any) => 
+      stock.productId?._id || stock.productId
+    );
+
+    // Filter products to only show those available in this store
+    const filtered = products.filter((p: any) => 
+      productIdsInStore.includes(p._id)
+    );
+
+    setAvailableProducts(filtered);
+  }, [currentItem.store, products, stocks, stores]);
+
   const handleAddItem = () => {
     if (currentItem.product && currentItem.description) {
-      setInvoice(prev => ({
-        ...prev,
-        items: [...prev.items, { ...currentItem }],
-      }));
+      if (editingItemIndex !== null) {
+        // Update existing item
+        const updatedItems = [...invoice.items];
+        updatedItems[editingItemIndex] = currentItem;
+        setInvoice(prev => ({
+          ...prev,
+          items: updatedItems,
+        }));
+        setEditingItemIndex(null);
+      } else {
+        // Add new item
+        setInvoice(prev => ({
+          ...prev,
+          items: [...prev.items, { ...currentItem }],
+        }));
+      }
       setCurrentItem({
         store: 'GODOWN',
         product: '',
@@ -324,6 +419,11 @@ export default function SaleInvoicePage() {
         value: 0,
       });
     }
+  };
+
+  const handleEditItem = (index: number) => {
+    setEditingItemIndex(index);
+    setCurrentItem(invoice.items[index]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -361,40 +461,85 @@ export default function SaleInvoicePage() {
         alert('Please add at least one item');
         return;
       }
-      const response = await fetch('/api/sale-invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(invoice),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        alert('Invoice saved successfully!');
-        // Reset invoice and item entry to initial state
-        setInvoice(makeInitialInvoice());
-        setCurrentItem({
-          store: 'GODOWN',
-          product: '',
-          length: 0,
-          width: 0,
-          grams: 0,
-          description: '',
-          packing: 0,
-          brand: '',
-          reelNo: '',
-          constant: '',
-          pkt: 0,
-          weight: 0,
-          stock: 0,
-          rate: 0,
-          rateOn: 'Weight',
-          remarks: '',
-          value: 0,
+      
+      setSaving(true);
+      
+      if (isEditingInvoice && invoice._id) {
+        // Update existing invoice
+        const response = await fetch(`/api/sale-invoices/${invoice._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(invoice),
         });
+        const data = await response.json();
+        if (response.ok) {
+          alert('Invoice updated successfully!');
+          emitSaleInvoiceUpdated(); // Notify other tabs/components
+          // Reset invoice and item entry to initial state
+          setInvoice(makeInitialInvoice());
+          setIsEditingInvoice(false);
+          setCurrentItem({
+            store: 'GODOWN',
+            product: '',
+            length: 0,
+            width: 0,
+            grams: 0,
+            description: '',
+            packing: 0,
+            brand: '',
+            reelNo: '',
+            constant: '',
+            pkt: 0,
+            weight: 0,
+            stock: 0,
+            rate: 0,
+            rateOn: 'Weight',
+            remarks: '',
+            value: 0,
+          });
+        } else {
+          alert(`Error updating invoice: ${data.error || 'Unknown error'}`);
+        }
       } else {
-        alert(`Error saving invoice: ${data.error || 'Unknown error'}`);
+        // Create new invoice
+        const response = await fetch('/api/sale-invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(invoice),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('Invoice saved successfully!');
+          emitSaleInvoiceAdded(); // Notify other tabs/components
+          // Reset invoice and item entry to initial state
+          setInvoice(makeInitialInvoice());
+          setCurrentItem({
+            store: 'GODOWN',
+            product: '',
+            length: 0,
+            width: 0,
+            grams: 0,
+            description: '',
+            packing: 0,
+            brand: '',
+            reelNo: '',
+            constant: '',
+            pkt: 0,
+            weight: 0,
+            stock: 0,
+            rate: 0,
+            rateOn: 'Weight',
+            remarks: '',
+            value: 0,
+          });
+        } else {
+          alert(`Error saving invoice: ${data.error || 'Unknown error'}`);
+        }
       }
     } catch (error) {
       alert('Network error. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -795,7 +940,7 @@ export default function SaleInvoicePage() {
                       className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     >
                       <option value="">Select Product</option>
-                      {products.map(product => (
+                      {availableProducts.map(product => (
                         <option key={product.item} value={product.item}>{product.item}</option>
                       ))}
                     </select>
@@ -953,8 +1098,37 @@ export default function SaleInvoicePage() {
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Add Grid</span>
+                    <span>{editingItemIndex !== null ? 'Update Grid' : 'Add Grid'}</span>
                   </button>
+                  {editingItemIndex !== null && (
+                    <button
+                      onClick={() => {
+                        setEditingItemIndex(null);
+                        setCurrentItem({
+                          store: 'GODOWN',
+                          product: '',
+                          length: 0,
+                          width: 0,
+                          grams: 0,
+                          description: '',
+                          packing: 100,
+                          brand: '',
+                          reelNo: '',
+                          constant: '',
+                          pkt: 0,
+                          weight: 0,
+                          stock: 0,
+                          rate: 0,
+                          rateOn: 'Weight',
+                          remarks: '',
+                          value: 0,
+                        });
+                      }}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -988,12 +1162,18 @@ export default function SaleInvoicePage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.weight}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.rate}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.value}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                              <button
+                                onClick={() => handleEditItem(index)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => handleRemoveItem(index)}
                                 className="text-red-600 hover:text-red-900"
                               >
-                                Remove
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>
@@ -1105,11 +1285,23 @@ export default function SaleInvoicePage() {
           <div className="space-y-4">
             <button
               onClick={handleSave}
-              className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+              disabled={saving}
+              className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-5 h-5" />
-              <span>Save</span>
+              <span>{isEditingInvoice ? 'Update Invoice' : 'Save Invoice'}</span>
             </button>
+            {isEditingInvoice && (
+              <button
+                onClick={() => {
+                  setInvoice(makeInitialInvoice());
+                  setIsEditingInvoice(false);
+                }}
+                className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+              >
+                Cancel Edit
+              </button>
+            )}
             
             {/* Print Options */}
             <div className="pt-4 border-t border-gray-200">
@@ -1208,10 +1400,12 @@ export default function SaleInvoicePage() {
                               ...saleInvoice,
                               items: saleInvoice.items || []
                             });
+                            setIsEditingInvoice(true);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
                           className="text-blue-600 hover:text-blue-900"
                         >
-                          Edit
+                          <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={async () => {
@@ -1221,18 +1415,22 @@ export default function SaleInvoicePage() {
                                   method: 'DELETE',
                                 });
                                 if (response.ok) {
-                                  fetchSaleInvoices(); // Refresh the list
+                                  emitSaleInvoiceDeleted(); // Notify other tabs/components
+                                  fetchSaleInvoices(true); // Refresh the list
+                                  alert('Invoice deleted successfully');
                                 } else {
-                                  console.error('Failed to delete sale invoice');
+                                  const error = await response.json();
+                                  alert(`Failed to delete invoice: ${error.error || 'Unknown error'}`);
                                 }
                               } catch (error) {
                                 console.error('Error deleting sale invoice:', error);
+                                alert('Network error while deleting invoice');
                               }
                             }
                           }}
                           className="text-red-600 hover:text-red-900"
                         >
-                          Delete
+                          <Trash2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {
@@ -1246,14 +1444,25 @@ export default function SaleInvoicePage() {
                           }}
                           className="text-green-600 hover:text-green-900"
                         >
-                          Print
+                          <Printer className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {saleInvoices.length === 0 && (
+              {hasMore && (
+                <div className="text-center py-4">
+                  <button
+                    onClick={() => fetchSaleInvoices()}
+                    disabled={isFetching}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                  >
+                    {isFetching ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
+              {saleInvoices.length === 0 && !isFetching && (
                 <div className="text-center py-8 text-gray-500">
                   No sales records found
                 </div>

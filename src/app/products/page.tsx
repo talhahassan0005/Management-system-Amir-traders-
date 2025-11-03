@@ -42,16 +42,43 @@ export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [activeProducts, setActiveProducts] = useState(0);
+  const [lowStockProducts, setLowStockProducts] = useState(0);
+  const [outOfStockProducts, setOutOfStockProducts] = useState(0);
 
   // Fetch products from API
-  const fetchProducts = async () => {
+  const fetchProducts = async (loadMore = false) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/products');
+      const currentPage = loadMore ? page + 1 : 1;
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+        search: searchQuery,
+        category: selectedCategory,
+        status: selectedStatus,
+      });
+
+      const response = await fetch(`/api/products?${params}`);
       const data = await response.json();
       
       if (response.ok) {
-        setProducts(data.products || []);
+        const newProducts = data.products || [];
+        setProducts(prev => loadMore ? [...prev, ...newProducts] : newProducts);
+        setHasMore(newProducts.length > 0 && (loadMore ? products.length + newProducts.length : newProducts.length) < data.pagination.total);
+        if (loadMore) {
+          setPage(currentPage);
+        } else {
+          setPage(1);
+        }
+        // Set stats
+        setTotalProducts(data.pagination.total || 0);
+        setActiveProducts(data.stats?.active || 0);
+        setLowStockProducts(data.stats?.lowStock || 0);
+        setOutOfStockProducts(data.stats?.outOfStock || 0);
       } else {
         console.error('Error fetching products:', data.error);
       }
@@ -63,21 +90,10 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(false);
+  }, [searchQuery, selectedCategory, selectedStatus]);
 
-  const filteredProducts = products.filter(product => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch = (product.item || '').toLowerCase().includes(q) ||
-      (product.description || '').toLowerCase().includes(q) ||
-      (product.brand || '').toLowerCase().includes(q);
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    const matchesStatus =
-      selectedStatus === 'all' ||
-      (selectedStatus === 'active' ? product.isActive : selectedStatus === 'inactive' ? !product.isActive : true);
-
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const filteredProducts = products;
 
   return (
     <Layout>
@@ -103,7 +119,7 @@ export default function ProductsPage() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900">{products.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
               </div>
             </div>
           </div>
@@ -113,9 +129,9 @@ export default function ProductsPage() {
                 <Package className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">In Stock</p>
+                <p className="text-sm font-medium text-gray-600">Active</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {products.filter(p => p.isActive).length}
+                  {activeProducts}
                 </p>
               </div>
             </div>
@@ -128,7 +144,7 @@ export default function ProductsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Low Stock</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {products.filter(p => (p.minStockLevel ?? 0) > 0).length}
+                  {lowStockProducts}
                 </p>
               </div>
             </div>
@@ -141,7 +157,7 @@ export default function ProductsPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Out of Stock</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {products.filter(p => !p.isActive).length}
+                  {outOfStockProducts}
                 </p>
               </div>
             </div>
@@ -263,6 +279,17 @@ export default function ProductsPage() {
                 ))}
               </tbody>
             </table>
+            {hasMore && (
+              <div className="py-6 text-center">
+                <button
+                  onClick={() => fetchProducts(true)}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+                >
+                  {loading ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ export const fetchCache = 'force-no-store';
 import dbConnect from '@/lib/mongodb';
 import Product from '@/models/Product';
 import Production from '@/models/Production';
+import { emitStockUpdated } from '@/lib/cross-tab-event-bus';
 
 export async function GET(
   request: NextRequest,
@@ -20,6 +21,9 @@ export async function GET(
         { status: 404 }
       );
     }
+    
+    // Emit stock updated event
+    emitStockUpdated();
     
     return NextResponse.json(product);
   } catch (error) {
@@ -53,6 +57,9 @@ export async function PUT(
       );
     }
     
+    // Emit stock updated event
+    emitStockUpdated();
+
     return NextResponse.json(product);
   } catch (error) {
     console.error('Error updating product:', error);
@@ -85,6 +92,9 @@ export async function DELETE(
       { $pull: { items: { productId: id } } }
     );
     await Production.deleteMany({ items: { $size: 0 } });
+
+    // Emit stock updated event
+    emitStockUpdated();
 
     return NextResponse.json({ message: 'Product deleted successfully', cascaded: true });
   } catch (error) {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Edit, Loader2, RefreshCw, Save, Search, Trash2, X } from 'lucide-react';
+import { emitSupplierUpdated, onSupplierUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Supplier {
   _id?: string;
@@ -25,6 +26,11 @@ export default function SuppliersPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const PAGE_LIMIT = 20;
 
   const [formData, setFormData] = useState<Supplier>({
     code: '',
@@ -37,27 +43,39 @@ export default function SuppliersPage() {
   });
 
   // Fetch suppliers from API
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (searchQuery) {
         params.append('search', searchQuery);
         params.append('filter', searchFilter);
       }
-      // Request a larger page size like Customer does elsewhere
-      params.append('limit', '1000');
+      params.append('page', String(currentPage));
+      params.append('limit', String(PAGE_LIMIT));
+      
       const res = await fetch(`/api/suppliers?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json();
+      
       if (res.ok) {
-        setSuppliers(data.suppliers || []);
+        setSuppliers(prev => isNewSearch ? data.suppliers : [...prev, ...data.suppliers]);
+        setHasMore(data.pagination.hasMore);
+        setPage(currentPage + 1);
       } else {
         console.error('Failed to load suppliers:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch suppliers');
       }
     } catch (err) {
       console.error('Error fetching suppliers:', err);
+      setErrorMsg('An unexpected error occurred.');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -66,19 +84,18 @@ export default function SuppliersPage() {
 
   
   useEffect(() => {
-    fetchSuppliers();
-    // realtime via SSE
-    const es = new EventSource('/api/suppliers/sse');
-    es.onmessage = (e) => {
-      if (e.data === 'changed') fetchSuppliers();
-    };
-    es.onerror = () => {
-      es.close();
-      // Reconnect next effect render automatically
-    };
-    return () => es.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchSuppliers(true);
   }, [searchQuery, searchFilter]);
+
+  // Event-based refresh via cross-tab event bus
+  useEffect(() => {
+    const unsubscribe = onSupplierUpdated(() => {
+      if (!isEditing && !saving) {
+        fetchSuppliers(true);
+      }
+    });
+    return () => unsubscribe();
+  }, [isEditing, saving]);
 
   const handleInputChange = (field: keyof Supplier, value: string | number | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -94,38 +111,26 @@ export default function SuppliersPage() {
         setErrorMsg('Description is required');
         return;
       }
-      if (isEditing && selectedSupplier?._id) {
-        const res = await fetch(`/api/suppliers/${selectedSupplier._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-        if (res.ok) {
-          await fetchSuppliers();
-          handleRefresh();
-          setSuccessMsg('Supplier updated');
-        } else {
-          const err = await res.json();
-          console.error('Update failed:', err.error);
-          setErrorMsg(err.error || 'Failed to update supplier');
-          return;
-        }
+      
+      const url = isEditing && selectedSupplier ? `/api/suppliers/${selectedSupplier._id}` : '/api/suppliers';
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        fetchSuppliers(true);
+        emitSupplierUpdated(); // Notify other tabs/components
+        handleRefresh();
+        setSuccessMsg(`Supplier ${isEditing ? 'updated' : 'created'} successfully`);
       } else {
-        const res = await fetch('/api/suppliers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-        if (res.ok) {
-          await fetchSuppliers();
-          handleRefresh();
-          setSuccessMsg('Supplier created');
-        } else {
-          const err = await res.json();
-          console.error('Create failed:', err.error);
-          setErrorMsg(err.error || 'Failed to create supplier');
-          return;
-        }
+        console.error(`Error ${isEditing ? 'updating' : 'creating'} supplier:`, result.error);
+        setErrorMsg(result.error || `Failed to ${isEditing ? 'update' : 'create'} supplier`);
       }
     } catch (e) {
       console.error('Error saving supplier:', e);
@@ -139,19 +144,27 @@ export default function SuppliersPage() {
     setSelectedSupplier(supplier);
     setFormData(supplier);
     setIsEditing(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleRemove = async (supplierId: string) => {
+    if (!confirm('Are you sure you want to delete this supplier?')) return;
+
     try {
       const res = await fetch(`/api/suppliers/${supplierId}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json();
         console.error('Delete failed:', err.error);
+        setErrorMsg(err.error || 'Failed to delete supplier');
+      } else {
+        fetchSuppliers(true);
+        emitSupplierUpdated(); // Notify other tabs/components
+        handleRefresh();
+        setSuccessMsg('Supplier deleted successfully');
       }
-      await fetchSuppliers();
-      handleRefresh();
     } catch (e) {
       console.error('Error deleting supplier:', e);
+      setErrorMsg('An unexpected error occurred while deleting.');
     }
   };
 
@@ -167,6 +180,8 @@ export default function SuppliersPage() {
       phone: '',
       address: '',
     });
+    setErrorMsg(null);
+    setSuccessMsg(null);
   };
 
   const handleExit = () => {
@@ -337,19 +352,19 @@ export default function SuppliersPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {loading && suppliers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       <p className="text-gray-500">Loading suppliers...</p>
                     </td>
                   </tr>
-                ) : filteredSuppliers.length === 0 ? (
+                ) : suppliers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center text-gray-500">No suppliers found</td>
                   </tr>
                 ) : (
-                  filteredSuppliers.map((supplier, index) => (
+                  suppliers.map((supplier, index) => (
                     <tr
                       key={supplier._id}
                       className={`hover:bg-gray-50 cursor-pointer ${selectedSupplier?._id === supplier._id ? 'bg-blue-50' : ''}`}
@@ -366,13 +381,13 @@ export default function SuppliersPage() {
                           onClick={(e) => { e.stopPropagation(); handleEdit(supplier); }}
                           className="text-blue-600 hover:text-blue-900 mr-3"
                         >
-                          Edit
+                          <Edit size={16} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleRemove(supplier._id!); }}
+                          onClick={(e) => { e.stopPropagation(); if (supplier._id) handleRemove(supplier._id); }}
                           className="text-red-600 hover:text-red-900"
                         >
-                          Delete
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>
@@ -381,6 +396,17 @@ export default function SuppliersPage() {
               </tbody>
             </table>
           </div>
+          {hasMore && (
+            <div className="px-6 py-4 text-center">
+              <button
+                onClick={() => fetchSuppliers()}
+                disabled={isFetching}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+              >
+                {isFetching ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

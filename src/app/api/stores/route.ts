@@ -9,16 +9,22 @@ export async function GET(request: NextRequest) {
     await dbConnect();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
 
     const query: any = {};
     if (status) query.status = status;
 
+    const skip = (page - 1) * limit;
     const stores = await Store.find(query)
+      .skip(skip)
       .limit(limit)
       .sort({ store: 1 });
 
-    return NextResponse.json({ stores });
+    const total = await Store.countDocuments(query);
+    const hasMore = page * limit < total;
+
+    return NextResponse.json({ stores, pagination: { hasMore } });
   } catch (error) {
     console.error('Error fetching stores:', error);
     return NextResponse.json({ error: 'Failed to fetch stores' }, { status: 500 });

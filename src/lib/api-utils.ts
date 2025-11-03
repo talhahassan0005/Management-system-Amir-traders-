@@ -106,12 +106,12 @@ export class QueryBuilder {
   }
 
   static buildSortQuery(sort: string) {
-    if (!sort) return { createdAt: -1 };
-    
-    const direction = sort.startsWith('-') ? -1 : 1;
+    if (!sort) return { createdAt: 'desc' } as Record<string, 'asc' | 'desc'>;
+
+    const direction: 'asc' | 'desc' = sort.startsWith('-') ? 'desc' : 'asc';
     const field = sort.replace(/^-/, '');
-    
-    return { [field]: direction };
+
+    return { [field]: direction } as Record<string, 'asc' | 'desc'>;
   }
 }
 

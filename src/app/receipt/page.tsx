@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Printer } from 'lucide-react';
 
 type PartyType = 'Customer' | 'Supplier';
 type Mode = 'Cash' | 'Bank' | 'Cheque';
@@ -28,6 +28,12 @@ export default function ReceiptPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
 
   const [form, setForm] = useState<Receipt>({
     date: new Date().toISOString().slice(0,10),
@@ -66,6 +72,39 @@ export default function ReceiptPage() {
     });
   }, [receipts, search, partyLabelMap]);
 
+  const fetchReceipts = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const url = `/api/receipts?page=${currentPage}&limit=${PAGE_LIMIT}&q=${search}`;
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) {
+        setReceipts(prev => isNewSearch ? data.receipts : [...prev, ...data.receipts]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      } else {
+        console.error('Failed to load receipts:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch receipts.');
+      }
+    } catch (e) {
+      console.error('Error fetching receipts:', e);
+      setErrorMsg('An unexpected error occurred.');
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
+    }
+  };
+
+
   const loadParties = async () => {
     try {
       const [cRes, sRes] = await Promise.all([
@@ -80,23 +119,12 @@ export default function ReceiptPage() {
     }
   };
 
-  const fetchReceipts = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/receipts');
-      const data = await res.json();
-      if (res.ok) setReceipts(data.receipts || []);
-      else console.error('Failed to load receipts:', data.error);
-    } catch (e) {
-      console.error('Error fetching receipts:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   useEffect(() => {
-    fetchReceipts();
+    fetchReceipts(true);
     loadParties();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetForm = () => {
@@ -119,7 +147,7 @@ export default function ReceiptPage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save receipt'); return; }
-      await fetchReceipts();
+      await fetchReceipts(true);
       resetForm();
       setSuccessMsg('Receipt saved');
     } catch (e) {
@@ -153,7 +181,7 @@ export default function ReceiptPage() {
         return;
       }
       if (selected?._id === id) resetForm();
-      await fetchReceipts();
+      await fetchReceipts(true);
     } catch (e) {
       console.error('Error deleting receipt:', e);
       setErrorMsg('Unexpected error while deleting');
@@ -163,7 +191,7 @@ export default function ReceiptPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between print:hidden">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Receipt Management</h1>
             <p className="text-gray-600">Manage receipts and payment confirmations</p>
@@ -172,7 +200,7 @@ export default function ReceiptPage() {
 
         <div className="grid grid-cols-1 gap-6">
           <div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4 receipt-print">
               {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200">{errorMsg}</div>}
               {successMsg && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200">{successMsg}</div>}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -211,7 +239,11 @@ export default function ReceiptPage() {
                   <input type="text" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Optional" />
                 </div>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
+                <button onClick={() => window.print()} className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
+                  <Printer className="w-5 h-5" />
+                  <span>Print</span>
+                </button>
                 <button onClick={save} disabled={saving} className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50">
                   {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                   <span>{saving ? 'Saving...' : selected?._id ? 'Update Receipt' : 'Save Receipt'}</span>
@@ -237,10 +269,20 @@ export default function ReceiptPage() {
                 placeholder="Receipt #, party, mode, amount..."
               />
             </div>
+            <button
+              onClick={() => fetchReceipts(true)}
+              disabled={isFetching}
+              className="h-10 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isFetching ? 'Searching...' : 'Search'}
+            </button>
             {search && (
               <button
-                onClick={() => setSearch('')}
-                className="mt-6 h-10 px-3 rounded-lg border bg-gray-50 hover:bg-gray-100 text-gray-700"
+                onClick={() => {
+                  setSearch('');
+                  fetchReceipts(true);
+                }}
+                className="h-10 px-3 rounded-lg border bg-gray-50 hover:bg-gray-100 text-gray-700"
               >
                 Clear
               </button>
@@ -259,12 +301,12 @@ export default function ReceiptPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {loading && receipts.length === 0 ? (
                   <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : receipts.length === 0 ? (
                   <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No receipts found</td></tr>
                 ) : (
-                  filteredReceipts.map((p) => (
+                  receipts.map((p) => (
                     <tr key={p._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.receiptNumber}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.date?.toString()?.slice(0,10)}</td>
@@ -287,6 +329,17 @@ export default function ReceiptPage() {
                 )}
               </tbody>
             </table>
+            {hasMore && (
+              <div className="text-center py-4">
+                <button
+                  onClick={() => fetchReceipts()}
+                  disabled={isFetching}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                >
+                  {isFetching ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

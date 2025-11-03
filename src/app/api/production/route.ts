@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { emitProductionAdded } from '@/lib/cross-tab-event-bus';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
 import dbConnect from '@/lib/mongodb';
@@ -204,6 +205,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    emitProductionAdded();
     return NextResponse.json(created, { status: 201 });
   } catch (error: any) {
     console.error('Error creating production:', error);

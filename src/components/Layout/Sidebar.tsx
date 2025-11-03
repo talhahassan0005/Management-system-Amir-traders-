@@ -39,7 +39,7 @@ const navigation = [
   { name: 'Stock Report', href: '/stock-report', icon: BarChart3 },
   { name: 'Cheque Report', href: '/cheque-report', icon: BarChart3 },
   { name: 'DB Status', href: '/db-status', icon: Database },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Reports', href: '/reports', icon: BarChart3 },
 ];
 
 interface SidebarProps {

@@ -21,21 +21,46 @@ export default function StorePage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'All' | 'Active' | 'Inactive'>('All');
 
-  const fetchStores = async () => {
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
+
+  const fetchStores = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (status !== 'All') params.append('status', status);
+    params.append('page', currentPage.toString());
+    params.append('limit', PAGE_LIMIT.toString());
+
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (status !== 'All') params.append('status', status);
       const res = await fetch(`/api/stores?${params.toString()}`);
       const data = await res.json();
-      if (res.ok) setStores(data.stores || []);
+      if (res.ok) {
+        setStores(prev => isNewSearch ? data.stores : [...prev, ...data.stores]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      }
     } finally {
+      setIsFetching(false);
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchStores(); }, [search, status]);
+  useEffect(() => { 
+    fetchStores(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, status]);
 
   const reset = () => { setSelected(null); setForm({ store: '', description: '', status: 'Active' }); };
 
@@ -46,7 +71,7 @@ export default function StorePage() {
       const res = await fetch('/api/stores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
       if (res.ok) {
         reset();
-        fetchStores();
+        fetchStores(true);
         // Emit cross-tab event for production environments
         console.log('✅ Store created, emitting storeUpdated event (cross-tab)');
         emitStoreUpdated();
@@ -59,7 +84,7 @@ export default function StorePage() {
     const res = await fetch(`/api/stores/${selected._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     if (res.ok) { 
       reset(); 
-      fetchStores();
+      fetchStores(true);
       // Emit event to update other tabs
       console.log('✅ Store updated, emitting storeUpdated event (cross-tab)');
       emitStoreUpdated();
@@ -86,7 +111,7 @@ export default function StorePage() {
       if (res.ok) {
         console.log('✅ Store deleted successfully, refreshing list');
         reset();
-        fetchStores();
+        fetchStores(true);
         // Emit event to update other tabs
         emitStoreUpdated();
       } else {
@@ -175,7 +200,7 @@ export default function StorePage() {
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
-                <button onClick={fetchStores} className="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Refresh</button>
+                <button onClick={() => fetchStores()} className="bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Refresh</button>
               </div>
             </div>
             <div className="overflow-x-auto">

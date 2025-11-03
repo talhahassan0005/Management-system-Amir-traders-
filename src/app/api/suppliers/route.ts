@@ -1,3 +1,4 @@
+import { SortOrder } from 'mongoose';
 import { NextRequest } from 'next/server';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
@@ -13,7 +14,7 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
   const { search, filter, page, limit, skip, sort } = RequestParser.getSearchParams(request);
   const searchFields = ['code', 'description', 'business', 'city'];
   const query = QueryBuilder.buildSearchQuery(search, filter, searchFields);
-  const sortQuery = QueryBuilder.buildSortQuery(sort);
+  const sortQuery = QueryBuilder.buildSortQuery(sort) as { [key: string]: SortOrder };
 
   const [suppliers, total] = await Promise.all([
     PerformanceMonitor.measureTime(
@@ -22,11 +23,13 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
     ),
     PerformanceMonitor.measureTime(() => Supplier.countDocuments(query), 'Count suppliers')
   ]);
+  
+  const hasMore = (page * limit) < total;
 
   return new Response(
     JSON.stringify({
       suppliers,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+      pagination: { page, limit, total, hasMore }
     }),
     {
       status: 200,

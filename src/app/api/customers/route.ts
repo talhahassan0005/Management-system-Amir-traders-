@@ -28,7 +28,7 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
   const [customers, total] = await Promise.all([
     PerformanceMonitor.measureTime(
       () => Customer.find(query)
-        .sort(sortQuery)
+        .sort(sortQuery as any)
         .skip(skip)
         .limit(limit)
         .lean()
@@ -41,17 +41,17 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
     )
   ]);
   
+  const hasMore = (page * limit) < total;
+  
   const response = {
     customers,
     pagination: {
       page,
       limit,
       total,
-      pages: Math.ceil(total / limit)
+      hasMore
     }
-  };
-
-  return new Response(JSON.stringify(response), {
+  };  return new Response(JSON.stringify(response), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',

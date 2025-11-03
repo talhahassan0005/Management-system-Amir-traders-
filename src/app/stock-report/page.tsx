@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Filter as FilterIcon, RefreshCw, XCircle, Download, Printer, Search } from 'lucide-react';
 import Layout from '@/components/Layout/Layout';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
+import { onStockUpdated } from '@/lib/cross-tab-event-bus';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface MergedRow {
   _id: string;
@@ -169,8 +170,8 @@ export default function StockReportPage() {
     useEffect(() => { 
       fetchRows();
       
-      // Listen for store updates (cross-tab)
-      const unsubscribe = onStoreUpdated(() => {
+      // Listen for stock updates (cross-tab)
+      const unsubscribe = onStockUpdated(() => {
         fetchRows();
       });
       
@@ -179,10 +180,13 @@ export default function StockReportPage() {
       };
     }, []); // initial load
 
-  // Silent auto-refresh every 10 seconds for real-time stock report updates
-  useAutoRefresh(() => {
-    if (!loading) fetchRows();
-  }, 10000);
+  // Silent auto-refresh on stock changes
+  useEffect(() => {
+    const unsubscribe = onStockUpdated(() => {
+      if (!loading) fetchRows();
+    });
+    return () => unsubscribe();
+  }, [loading]);
 
   const filtered = useMemo(() => {
     let out = rows;
@@ -220,6 +224,32 @@ export default function StockReportPage() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'stock-godown-report.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    doc.text("Amir Traders – Stock/Godown Report", 14, 16);
+    autoTable(doc, {
+      head: [['Sr#', 'Item Code', 'Description', 'Length', 'Width', 'Grams', 'Reel No.', 'Type', 'Packet', 'Weight', 'Produced (Pkt)', 'Purchased (Pkt)', 'Date', 'Purchased From']],
+      body: filtered.map((r, idx) => [
+        idx + 1,
+        r.itemCode,
+        r.description,
+        r.length ?? '',
+        r.width ?? '',
+        r.grams ?? '',
+        r.reelNo ?? '',
+        r.type ?? '',
+        r.packets ?? '',
+        r.weightKg ?? '',
+        r.producedPkt ?? '',
+        r.purchasedPkt ?? '',
+        r.date ?? '',
+        r.purchasedFrom || ''
+      ]),
+      startY: 20,
+    });
+    doc.save('stock-godown-report.pdf');
   };
 
   return (
@@ -331,7 +361,11 @@ export default function StockReportPage() {
                 </button>
                 <button onClick={exportCSV} className="inline-flex items-center gap-2 h-11 px-5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
                   <Download className="w-4 h-4" />
-                  <span>Export</span>
+                  <span>Export CSV</span>
+                </button>
+                <button onClick={exportPDF} className="inline-flex items-center gap-2 h-11 px-5 rounded-lg bg-red-600 text-white hover:bg-red-700">
+                  <Download className="w-4 h-4" />
+                  <span>Export PDF</span>
                 </button>
                 <button onClick={()=>window.print()} className="inline-flex items-center gap-2 h-11 px-5 rounded-lg bg-green-600 text-white hover:bg-green-700">
                   <Printer className="w-4 h-4" />

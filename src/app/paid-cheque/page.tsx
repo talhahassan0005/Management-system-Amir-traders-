@@ -13,30 +13,69 @@ export default function PaidChequePage() {
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchCheques = async () => {
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
+
+  const fetchCheques = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const params = new URLSearchParams({
+      status: 'Paid',
+      page: String(currentPage),
+      limit: String(PAGE_LIMIT),
+    });
+
+    if (searchQuery) {
+      params.append('search', searchQuery);
+    }
+
+    const url = `/api/cheques?${params.toString()}`;
+
     try {
-      setLoading(true);
-      const res = await fetch('/api/cheques?status=Paid&limit=100');
+      const res = await fetch(url);
       const data = await res.json();
-      if (res.ok) setCheques(data.cheques || []);
-      else setErrorMsg(data.error || 'Failed to load');
-    } catch (e) { setErrorMsg('Unexpected error while loading'); }
-    finally { setLoading(false); }
+      if (res.ok) {
+        setCheques(prev => isNewSearch ? data.cheques : [...prev, ...data.cheques]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      } else {
+        setErrorMsg(data.error || 'Failed to load');
+      }
+    } catch (e) {
+      setErrorMsg('Unexpected error while loading');
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchCheques(); }, []);
+  useEffect(() => { 
+    fetchCheques(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   const updateStatus = async (id: string, status: Status) => {
     const res = await fetch(`/api/cheques/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
     if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to update'); return; }
-    fetchCheques();
+    fetchCheques(true);
   };
 
   const remove = async (id: string) => {
     const res = await fetch(`/api/cheques/${id}`, { method: 'DELETE' });
     if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to delete'); return; }
-    fetchCheques();
+    fetchCheques(true);
   };
 
   return (
@@ -50,6 +89,15 @@ export default function PaidChequePage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-end mb-4">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by Cheque # or Bank"
+              className="w-full md:w-1/3 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 mb-4">{errorMsg}</div>}
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
@@ -63,7 +111,7 @@ export default function PaidChequePage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {loading && cheques.length === 0 ? (
                   <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : cheques.length === 0 ? (
                   <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No paid cheques</td></tr>
@@ -86,6 +134,17 @@ export default function PaidChequePage() {
                 )}
               </tbody>
             </table>
+            {hasMore && (
+              <div className="text-center py-4">
+                <button
+                  onClick={() => fetchCheques()}
+                  disabled={isFetching}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                >
+                  {isFetching ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

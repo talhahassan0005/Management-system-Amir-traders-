@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Save, Edit, Trash2, RefreshCw, X, Search, Loader2 } from 'lucide-react';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { emitCustomerUpdated, onCustomerUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Customer {
   _id?: string;
@@ -24,13 +24,8 @@ interface Customer {
 export default function CustomerPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilter, setSearchFilter] = useState('All');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [formData, setFormData] = useState<Customer>({
     code: '',
     description: '',
@@ -45,53 +40,68 @@ export default function CustomerPage() {
     creditLimit: 0,
     isActive: true,
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const PAGE_LIMIT = 10;
 
   // Fetch customers from API
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+    
+    const currentPage = isNewSearch ? 1 : page;
+    
     try {
-      setLoading(true);
       const params = new URLSearchParams();
       if (searchQuery) {
         params.append('search', searchQuery);
         params.append('filter', searchFilter);
       }
-      // Request a larger limit so more than 10 show
-      params.append('limit', '100000');
+      params.append('page', String(currentPage));
+      params.append('limit', String(PAGE_LIMIT));
+      
       const response = await fetch(`/api/customers?${params}`, { cache: 'no-store' });
       const data = await response.json();
       
       if (response.ok) {
-        setCustomers(data.customers || []);
+        setCustomers(prev => isNewSearch ? data.customers : [...prev, ...data.customers]);
+        setHasMore(data.pagination.hasMore);
+        setPage(currentPage + 1);
       } else {
         console.error('Error fetching customers:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch customers');
       }
     } catch (error) {
       console.error('Error fetching customers:', error);
+      setErrorMsg('An unexpected error occurred.');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
   // Load customers on component mount and when search changes
   useEffect(() => {
-    fetchCustomers();
-    // realtime via SSE
-    const es = new EventSource('/api/customers/sse');
-    es.onmessage = (e) => {
-      if (e.data === 'changed') fetchCustomers();
-    };
-    es.onerror = () => {
-      es.close();
-    };
-    return () => es.close();
+    fetchCustomers(true); // `true` indicates a new search
   }, [searchQuery, searchFilter]);
 
-  // Silent auto-refresh every 10 seconds as backup to SSE
-  useAutoRefresh(() => {
-    if (!isEditing && !saving) {
-      fetchCustomers();
-    }
-  }, 10000);
+  // Event-based refresh via cross-tab event bus
+  useEffect(() => {
+    const unsubscribe = onCustomerUpdated(() => {
+      if (!isEditing && !saving) {
+        fetchCustomers(true);
+      }
+    });
+    return () => unsubscribe();
+  }, [isEditing, saving]);
 
   const handleInputChange = (field: keyof Customer, value: string | number | boolean) => {
     setFormData(prev => ({
@@ -111,44 +121,25 @@ export default function CustomerPage() {
         return;
       }
       
-      if (isEditing && selectedCustomer) {
-        // Update existing customer
-        const response = await fetch(`/api/customers/${selectedCustomer._id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        if (response.ok) {
-          await fetchCustomers(); // Refresh the list
-          handleRefresh();
-          setSuccessMsg('Customer updated');
-        } else {
-          const error = await response.json();
-          console.error('Error updating customer:', error.error);
-          setErrorMsg(error.error || 'Failed to update customer');
-        }
+      const url = isEditing && selectedCustomer ? `/api/customers/${selectedCustomer._id}` : '/api/customers';
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      
+      const result = await response.json();
+
+      if (response.ok) {
+        fetchCustomers(true); // Refresh the list from page 1
+        emitCustomerUpdated(); // Notify other tabs/components
+        handleRefresh();
+        setSuccessMsg(`Customer ${isEditing ? 'updated' : 'created'} successfully`);
       } else {
-        // Add new customer
-        const response = await fetch('/api/customers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        if (response.ok) {
-          await fetchCustomers(); // Refresh the list
-          handleRefresh();
-          setSuccessMsg('Customer created');
-        } else {
-          const error = await response.json();
-          console.error('Error creating customer:', error.error);
-          setErrorMsg(error.error || 'Failed to create customer');
-        }
+        console.error(`Error ${isEditing ? 'updating' : 'creating'} customer:`, result.error);
+        setErrorMsg(result.error || `Failed to ${isEditing ? 'update' : 'create'} customer`);
       }
     } catch (error) {
       console.error('Error saving customer:', error);
@@ -162,23 +153,30 @@ export default function CustomerPage() {
     setSelectedCustomer(customer);
     setFormData(customer);
     setIsEditing(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleRemove = async (customerId: string) => {
+    if (!confirm('Are you sure you want to delete this customer?')) return;
+    
     try {
       const response = await fetch(`/api/customers/${customerId}`, {
         method: 'DELETE',
       });
       
       if (response.ok) {
-        await fetchCustomers(); // Refresh the list
+        fetchCustomers(true); // Refresh the list
+        emitCustomerUpdated(); // Notify other tabs/components
         handleRefresh();
+        setSuccessMsg('Customer deleted successfully');
       } else {
         const error = await response.json();
         console.error('Error deleting customer:', error.error);
+        setErrorMsg(error.error || 'Failed to delete customer');
       }
     } catch (error) {
       console.error('Error deleting customer:', error);
+      setErrorMsg('An unexpected error occurred while deleting.');
     }
   };
 
@@ -199,6 +197,8 @@ export default function CustomerPage() {
       creditLimit: 0,
       isActive: true,
     });
+    setErrorMsg(null);
+    setSuccessMsg(null);
   };
 
   const handleExit = () => {
@@ -475,21 +475,21 @@ export default function CustomerPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {loading && customers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       <p className="text-gray-500">Loading customers...</p>
                     </td>
                   </tr>
-                ) : filteredCustomers.length === 0 ? (
+                ) : customers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                       No customers found
                     </td>
                   </tr>
                 ) : (
-                  filteredCustomers.map((customer, index) => (
+                  customers.map((customer, index) => (
                   <tr 
                     key={customer._id} 
                     className={`hover:bg-gray-50 cursor-pointer ${selectedCustomer?._id === customer._id ? 'bg-blue-50' : ''}`}
@@ -509,16 +509,16 @@ export default function CustomerPage() {
                         }}
                         className="text-blue-600 hover:text-blue-900 mr-3"
                       >
-                        Edit
+                        <Edit size={16} />
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRemove(customer._id!);
+                          if (customer._id) handleRemove(customer._id);
                         }}
                         className="text-red-600 hover:text-red-900"
                       >
-                        Delete
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -527,6 +527,17 @@ export default function CustomerPage() {
               </tbody>
             </table>
           </div>
+          {hasMore && (
+            <div className="px-6 py-4 text-center">
+              <button
+                onClick={() => fetchCustomers()}
+                disabled={isFetching}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+              >
+                {isFetching ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

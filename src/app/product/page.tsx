@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Layout from '@/components/Layout/Layout';
-import { Save, Search, Loader2, Edit, Trash2 } from 'lucide-react';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
+import { Save, Search, Loader2, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { emitProductUpdated, onProductUpdated } from '@/lib/cross-tab-event-bus';
 
 interface Product {
   _id?: string;
@@ -47,6 +47,12 @@ export default function ProductPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalProducts, setTotalProducts] = useState(0);
+  
   const [formData, setFormData] = useState<Product>({
     item: '',
     description: '',
@@ -74,23 +80,40 @@ export default function ProductPage() {
   }, [products]);
 
   // Fetch products from API
-  const fetchProducts = async () => {
+  const fetchProducts = async (loadMore = false) => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
+      const currentPage = loadMore ? page + 1 : 1;
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+      });
+
       if (searchQuery) {
         params.append('search', searchQuery);
         params.append('filter', searchFilter);
       }
       
-      const response = await fetch(`/api/products?${params}`);
+        const response = await fetch(`/api/products?${params}`);
       const data = await response.json();
       
       if (response.ok) {
-        setProducts(data.products || []);
+        const newProducts = data.products || [];
+        setProducts(prev => loadMore ? [...prev, ...newProducts] : newProducts);
+        setTotalProducts(data.pagination.total || 0);
+        setHasMore(newProducts.length > 0 && (loadMore ? products.length + newProducts.length : newProducts.length) < data.pagination.total);
+        if (loadMore) {
+          setPage(currentPage);
+        } else {
+          setPage(1);
+        }
+
         // Extract unique categories from products
-        const uniqueCategories = [...new Set((data.products || []).map((product: any) => product.category).filter(Boolean))];
-        setCategories(uniqueCategories);
+        const uniqueCategories = [...new Set(newProducts.map((product: any) => product.category).filter(Boolean))] as string[];
+        setCategories(prev => {
+          const all = new Set([...prev, ...uniqueCategories]);
+          return Array.from(all);
+        });
       } else {
         console.error('Error fetching products:', data.error);
       }
@@ -103,15 +126,18 @@ export default function ProductPage() {
 
   // Load products on component mount and when search changes
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(false);
   }, [searchQuery, searchFilter]);
 
-  // Silent auto-refresh every 10 seconds for real-time updates
-  useAutoRefresh(() => {
-    if (!isEditing && !saving && !showDeleteModal) {
-      fetchProducts();
-    }
-  }, 10000);
+  // Event-based refresh instead of polling
+  useEffect(() => {
+    const unsubscribe = onProductUpdated(() => {
+      if (!isEditing && !saving && !showDeleteModal) {
+        fetchProducts();
+      }
+    });
+    return () => unsubscribe();
+  }, [isEditing, saving, showDeleteModal]);
 
   const handleInputChange = (field: keyof Product, value: string | number | boolean) => {
     setFormData(prev => ({
@@ -136,6 +162,7 @@ export default function ProductPage() {
         
         if (response.ok) {
           await fetchProducts(); // Refresh the list
+          emitProductUpdated(); // Notify other tabs/components
           resetForm();
         } else {
           const error = await response.json();
@@ -153,6 +180,7 @@ export default function ProductPage() {
         
         if (response.ok) {
           await fetchProducts(); // Refresh the list
+          emitProductUpdated(); // Notify other tabs/components
           resetForm();
         } else {
           const error = await response.json();
@@ -185,6 +213,7 @@ export default function ProductPage() {
       const response = await fetch(`/api/products/${deleteTarget._id}`, { method: 'DELETE' });
       if (response.ok) {
         await fetchProducts();
+        emitProductUpdated(); // Notify other tabs/components
         resetForm();
       } else {
         const error = await response.json();
@@ -223,28 +252,7 @@ export default function ProductPage() {
     });
   };
 
-  const filteredProducts = products.filter(product => {
-    const query = searchQuery.toLowerCase();
-    switch (searchFilter) {
-      case 'Item':
-        return product.item.toLowerCase().includes(query);
-      case 'Description':
-        return product.description.toLowerCase().includes(query);
-      case 'Grams':
-        return product.grams.toString().includes(query);
-      case 'Brand':
-        return product.brand.toLowerCase().includes(query);
-      case 'Category':
-        return product.category.toLowerCase().includes(query);
-      default:
-        return (
-          product.item.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query) ||
-          product.brand.toLowerCase().includes(query) ||
-          product.category.toLowerCase().includes(query)
-        );
-    }
-  });
+  const filteredProducts = products;
 
   return (
     <>
@@ -600,6 +608,19 @@ export default function ProductPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {hasMore && (
+            <div className="px-6 py-4 border-t border-gray-200 text-center">
+              <button
+                onClick={() => fetchProducts(true)}
+                disabled={loading}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'Load More'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

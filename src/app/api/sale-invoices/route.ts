@@ -1,3 +1,4 @@
+import { SortOrder } from 'mongoose';
 import { NextRequest } from 'next/server';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
@@ -20,7 +21,7 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
   // Build query
   const searchFields = ['invoiceNumber', 'customer', 'description'];
   const query = QueryBuilder.buildSearchQuery(search, filter, searchFields);
-  const sortQuery = QueryBuilder.buildSortQuery(sort);
+  const sortQuery = QueryBuilder.buildSortQuery(sort) as { [key: string]: SortOrder };
   
   // Execute queries in parallel for better performance
   const [invoices, total] = await Promise.all([
@@ -39,13 +40,15 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
     )
   ]);
   
+  const hasMore = (page * limit) < total;
+  
   const response = {
     invoices,
     pagination: {
       page,
       limit,
       total,
-      pages: Math.ceil(total / limit)
+      hasMore
     }
   };
 
@@ -53,7 +56,7 @@ export const GET = ErrorHandler.handleAsyncError(async (request: NextRequest) =>
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      ...CacheUtils.getCacheHeaders(60) // Cache for 1 minute
+      ...CacheUtils.getNoCacheHeaders()
     }
   });
 });

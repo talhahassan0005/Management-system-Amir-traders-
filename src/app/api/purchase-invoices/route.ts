@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     const total = await PurchaseInvoice.countDocuments(query);
+    const hasMore = (page * limit) < total;
 
     return NextResponse.json({
       invoices,
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit),
+        hasMore,
       },
     });
   } catch (error) {

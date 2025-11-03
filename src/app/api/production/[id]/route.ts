@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { emitProductionDeleted, emitProductionUpdated } from '@/lib/cross-tab-event-bus';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
 import dbConnect from '@/lib/mongodb';
@@ -197,6 +198,8 @@ export async function PUT(request: NextRequest, ctx: { params: Promise<{ id: str
     // 4) Finally update the production document
     const updated = await Production.findByIdAndUpdate(id, body, { new: true, runValidators: true });
     if (!updated) return NextResponse.json({ error: 'Production not found after update' }, { status: 404 });
+
+    emitProductionUpdated();
     return NextResponse.json(updated);
   } catch (error) {
     console.error('Error updating production:', error);
@@ -210,6 +213,8 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     const { id } = await ctx.params;
     const deleted = await Production.findByIdAndDelete(id);
     if (!deleted) return NextResponse.json({ error: 'Production not found' }, { status: 404 });
+
+    emitProductionDeleted();
     return NextResponse.json({ message: 'Production deleted successfully' });
   } catch (error) {
     console.error('Error deleting production:', error);

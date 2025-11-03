@@ -46,7 +46,6 @@ export interface ISaleInvoice extends Document {
   labour: number;
   netAmount: number;
   receive: number;
-  balance: number;
   totalWeight: number;
   createdAt: Date;
   updatedAt: Date;

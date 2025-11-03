@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
     await dbConnect();
     const { searchParams } = new URL(request.url);
     const storeFilter = (searchParams.get('store') || '').trim();
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const skip = (page - 1) * limit;
 
     const matchPurchase: any = {};
     const matchSale: any = {};
@@ -237,7 +240,11 @@ export async function GET(request: NextRequest) {
       data = data.filter(d => d.store === storeFilter);
     }
 
-    return NextResponse.json({ data });
+    const total = data.length;
+    const paginatedData = data.slice(skip, skip + limit);
+    const hasMore = (page * limit) < total;
+
+    return NextResponse.json({ data: paginatedData, pagination: { hasMore } });
   } catch (error: any) {
     console.error('Error building store stock:', error);
     return NextResponse.json({ error: 'Failed to build store stock: ' + (error.message || 'Unknown error') }, { status: 500 });

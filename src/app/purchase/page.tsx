@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Package, Plus, Save, Trash2 } from 'lucide-react';
-import { useAutoRefresh } from '@/hooks/useAutoRefresh';
-import { onStoreUpdated } from '@/lib/cross-tab-event-bus';
+import { onStoreUpdated, onPurchaseInvoiceChanged, emitPurchaseInvoiceAdded } from '@/lib/cross-tab-event-bus';
 
 interface PurchaseItem {
   store: string;
@@ -65,6 +64,12 @@ export default function PurchasePage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState(new Date().toISOString().slice(0,10));
   const [searchInvoice, setSearchInvoice] = useState<string>('');
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const PAGE_LIMIT = 20;
 
   // Global store selector: lock store once per invoice, then allow items entry
   const [globalStore, setGlobalStore] = useState<string>('');
@@ -104,30 +109,42 @@ export default function PurchasePage() {
     paymentMode: 'Cash',
   });
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = async (isNewSearch = false) => {
+    if (isFetching && !isNewSearch) return;
+    setIsFetching(true);
+    setLoading(true);
+
+    const currentPage = isNewSearch ? 1 : page;
+
     try {
-      setLoading(true);
       let url = '/api/purchase-invoices';
       const params = new URLSearchParams();
       
       if (fromDate) params.set('from', fromDate);
       if (toDate) params.set('to', toDate);
+      if (searchInvoice) params.set('search', searchInvoice);
+
+      params.set('page', String(currentPage));
+      params.set('limit', String(PAGE_LIMIT));
       
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      url += `?${params.toString()}`;
       
       const res = await fetch(url);
       const data = await res.json();
       if (res.ok) {
-        setInvoices(data.invoices || []);
+        setInvoices(prev => isNewSearch ? data.invoices : [...prev, ...data.invoices]);
+        setHasMore(data.pagination.hasMore);
+        setPage(currentPage + 1);
       } else {
         console.error('Failed to load invoices:', data.error);
+        setErrorMsg(data.error || 'Failed to fetch invoices');
       }
     } catch (e) {
       console.error('Error fetching purchase invoices:', e);
+      setErrorMsg('An unexpected error occurred.');
     } finally {
       setLoading(false);
+      setIsFetching(false);
     }
   };
 
@@ -182,16 +199,19 @@ export default function PurchasePage() {
 
   // Auto-load recent purchases on initial mount with current date filters (To defaults to today)
   useEffect(() => {
-    fetchInvoices();
+    fetchInvoices(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fromDate, toDate, searchInvoice]);
 
-  // Silent auto-refresh every 10 seconds for real-time invoice updates
-  useAutoRefresh(() => {
-    if (!saving) {
-      fetchInvoices();
-    }
-  }, 10000);
+  // Event-based refresh for purchase invoices
+  useEffect(() => {
+    const unsubscribe = onPurchaseInvoiceChanged(() => {
+      if (!saving) {
+        fetchInvoices(true);
+      }
+    });
+    return () => unsubscribe();
+  }, [saving]);
 
   // Keep currentItem.store in sync when store is locked/unlocked or changes
   useEffect(() => {
@@ -306,30 +326,43 @@ export default function PurchasePage() {
   const addCurrentItemToGrid = () => {
     const item = currentItem;
     if (!item.product) return; // require only product (like Sales)
-    setForm((prev) => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        {
-          store: storeLocked ? globalStore || item.store : item.store,
-          product: item.product,
-          qty: Number(item.qty || 0),
-          weight: Number(item.weight || 0),
-          stock: item.stock,
-          baseStock: item.baseStock,
-          rate: item.rate,
-          rateOn: item.rateOn,
-          value: item.value,
-          description: item.description,
-          brand: item.brand,
-          width: item.width,
-          length: item.length,
-          grams: item.grams,
-          packing: item.packing,
-          remarks: item.remarks,
-        },
-      ],
-    }));
+
+    if (editingItemIndex !== null) {
+      // Update existing item
+      const updatedItems = [...form.items];
+      updatedItems[editingItemIndex] = item;
+      setForm(prev => ({
+        ...prev,
+        items: updatedItems,
+      }));
+      setEditingItemIndex(null);
+    } else {
+      // Add new item
+      setForm((prev) => ({
+        ...prev,
+        items: [
+          ...prev.items,
+          {
+            store: storeLocked ? globalStore || item.store : item.store,
+            product: item.product,
+            qty: Number(item.qty || 0),
+            weight: Number(item.weight || 0),
+            stock: item.stock,
+            baseStock: item.baseStock,
+            rate: item.rate,
+            rateOn: item.rateOn,
+            value: item.value,
+            description: item.description,
+            brand: item.brand,
+            width: item.width,
+            length: item.length,
+            grams: item.grams,
+            packing: item.packing,
+            remarks: item.remarks,
+          },
+        ],
+      }));
+    }
     // reset entry but keep locked store
     setCurrentItem({
       store: storeLocked ? globalStore : '',
@@ -451,6 +484,11 @@ export default function PurchasePage() {
     setForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
   };
 
+  const handleEditItem = (index: number) => {
+    setEditingItemIndex(index);
+    setCurrentItem(form.items[index]);
+  };
+
   const totals = useMemo(() => {
     const itemsTotal = form.items.reduce((sum, it) => sum + (Number(it.value) || 0), 0);
     const gross = itemsTotal;
@@ -522,6 +560,7 @@ export default function PurchasePage() {
           setErrorMsg(err.error || 'Failed to update invoice');
           return;
         }
+        emitPurchaseInvoiceAdded(); // Use same event for update
       } else {
         const res = await fetch('/api/purchase-invoices', {
           method: 'POST',
@@ -534,6 +573,7 @@ export default function PurchasePage() {
           setErrorMsg(err.error || 'Failed to create invoice');
           return;
         } else {
+          emitPurchaseInvoiceAdded(); // Notify other tabs/components
           // If initial payment > 0, create a payment voucher against supplier
           const created = await res.json();
           const amount = Number(form.initialPayment || 0);
@@ -570,11 +610,14 @@ export default function PurchasePage() {
 
   const editInvoice = (inv: PurchaseInvoice) => {
     setSelected(inv);
+    const supplierName = inv.supplier || '';
+    const supplierObject = suppliers.find(s => s.label === supplierName || s.description === supplierName || s.person === supplierName) || null;
+
     setForm({
       date: inv.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
       reference: inv.reference || '',
       paymentType: inv.paymentType,
-      supplier: inv.supplier || '',
+      supplier: supplierName,
       items: inv.items?.length ? inv.items : [],
       totalAmount: inv.totalAmount || 0,
       discount: inv.discount || 0,
@@ -585,7 +628,7 @@ export default function PurchasePage() {
       initialPayment: 0,
       paymentMode: 'Cash',
     });
-    setSelectedSupplier(null);
+    setSelectedSupplier(supplierObject);
   };
 
   const deleteInvoice = async (id: string) => {
@@ -595,6 +638,7 @@ export default function PurchasePage() {
         const err = await res.json();
         console.error('Delete failed:', err.error);
       }
+      emitPurchaseInvoiceAdded(); // Use same event for delete
       await fetchInvoices();
       if (selected?._id === id) resetForm();
     } catch (e) {
@@ -765,155 +809,157 @@ export default function PurchasePage() {
                 {/* Product Entry Grid (same behaviour style as Sales) */}
                 <div className="mb-3">
                   <h3 className="text-sm font-semibold text-gray-900 mb-2">Product Entry</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-1">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label>
-                      <input
-                        type="text"
-                        value={storeLocked ? globalStore : currentItem.store}
-                        onChange={(e) => handleCurrentItemChange('store', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                        placeholder="Start typing store..."
-                        list="entry-store-list"
-                        autoComplete="off"
-                        disabled={storeLocked}
-                      />
-                      {!storeLocked && (
-                        <datalist id="entry-store-list">
-                          {stores.map((st: any) => (
-                            <option key={st._id || st.store} value={st.store} />
+                  <div className="overflow-x-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-1 min-w-max">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label>
+                        <input
+                          type="text"
+                          value={storeLocked ? globalStore : currentItem.store}
+                          onChange={(e) => handleCurrentItemChange('store', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                          placeholder="Start typing store..."
+                          list="entry-store-list"
+                          autoComplete="off"
+                          disabled={storeLocked}
+                        />
+                        {!storeLocked && (
+                          <datalist id="entry-store-list">
+                            {stores.map((st: any) => (
+                              <option key={st._id || st.store} value={st.store} />
+                            ))}
+                          </datalist>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
+                        <select
+                          value={currentItem.product}
+                          onChange={(e) => handleCurrentItemChange('product', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        >
+                          <option value="">Select Product</option>
+                          {products.map((product: any) => (
+                            <option key={product.item} value={product.item}>
+                              {product.item}
+                            </option>
                           ))}
-                        </datalist>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
-                      <select
-                        value={currentItem.product}
-                        onChange={(e) => handleCurrentItemChange('product', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      >
-                        <option value="">Select Product</option>
-                        {products.map((product: any) => (
-                          <option key={product.item} value={product.item}>
-                            {product.item}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
-                      <input
-                        type="number"
-                        value={currentItem.qty === 0 ? '' : currentItem.qty}
-                        onChange={(e) => handleCurrentItemChange('qty', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                        min={0}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Weight</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={currentItem.weight === 0 ? '' : currentItem.weight}
-                        onChange={(e) => handleCurrentItemChange('weight', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={currentItem.rate === 0 ? '' : currentItem.rate}
-                        onChange={(e) => handleCurrentItemChange('rate', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate On</label>
-                      <select
-                        value={currentItem.rateOn || 'Weight'}
-                        onChange={(e) => handleCurrentItemChange('rateOn', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      >
-                        <option value="Weight">Weight</option>
-                        <option value="Quantity">Quantity</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={currentItem.value === 0 ? '' : currentItem.value}
-                        readOnly
-                        className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Stock</label>
-                      <input
-                        type="number"
-                        value={currentItem.stock === 0 ? '' : currentItem.stock}
-                        readOnly
-                        className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
-                      <input
-                        type="number"
-                        value={currentItem.length === 0 ? '' : currentItem.length}
-                        onChange={(e) => handleCurrentItemChange('length', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
-                      <input
-                        type="number"
-                        value={currentItem.width === 0 ? '' : currentItem.width}
-                        onChange={(e) => handleCurrentItemChange('width', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Grams</label>
-                      <input
-                        type="number"
-                        value={currentItem.grams === 0 ? '' : currentItem.grams}
-                        onChange={(e) => handleCurrentItemChange('grams', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Brand</label>
-                      <input
-                        type="text"
-                        value={currentItem.brand || ''}
-                        onChange={(e) => handleCurrentItemChange('brand', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Description</label>
-                      <input
-                        type="text"
-                        value={currentItem.description || ''}
-                        onChange={(e) => handleCurrentItemChange('description', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
-                      <input
-                        type="text"
-                        value={currentItem.remarks || ''}
-                        onChange={(e) => handleCurrentItemChange('remarks', e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                      />
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
+                        <input
+                          type="number"
+                          value={currentItem.qty || ''}
+                          onChange={(e) => handleCurrentItemChange('qty', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                          min={0}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Weight</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={currentItem.weight || ''}
+                          onChange={(e) => handleCurrentItemChange('weight', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={currentItem.rate || ''}
+                          onChange={(e) => handleCurrentItemChange('rate', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate On</label>
+                        <select
+                          value={currentItem.rateOn || 'Weight'}
+                          onChange={(e) => handleCurrentItemChange('rateOn', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        >
+                          <option value="Weight">Weight</option>
+                          <option value="Quantity">Quantity</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Amount</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={currentItem.value || ''}
+                          readOnly
+                          className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Stock</label>
+                        <input
+                          type="number"
+                          value={currentItem.stock || ''}
+                          readOnly
+                          className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
+                        <input
+                          type="number"
+                          value={currentItem.length || ''}
+                          onChange={(e) => handleCurrentItemChange('length', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
+                        <input
+                          type="number"
+                          value={currentItem.width || ''}
+                          onChange={(e) => handleCurrentItemChange('width', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Grams</label>
+                        <input
+                          type="number"
+                          value={currentItem.grams || ''}
+                          onChange={(e) => handleCurrentItemChange('grams', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Brand</label>
+                        <input
+                          type="text"
+                          value={currentItem.brand || ''}
+                          onChange={(e) => handleCurrentItemChange('brand', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Description</label>
+                        <input
+                          type="text"
+                          value={currentItem.description || ''}
+                          onChange={(e) => handleCurrentItemChange('description', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Remarks</label>
+                        <input
+                          type="text"
+                          value={currentItem.remarks || ''}
+                          onChange={(e) => handleCurrentItemChange('remarks', e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="flex space-x-1 mt-2">
@@ -922,8 +968,36 @@ export default function PurchasePage() {
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>Add Grid</span>
+                      <span>{editingItemIndex !== null ? 'Update Grid' : 'Add Grid'}</span>
                     </button>
+                    {editingItemIndex !== null && (
+                      <button
+                        onClick={() => {
+                          setEditingItemIndex(null);
+                          setCurrentItem({
+                            store: storeLocked ? globalStore : '',
+                            product: '',
+                            qty: 0,
+                            weight: 0,
+                            stock: 0,
+                            baseStock: 0,
+                            rate: 0,
+                            rateOn: 'Weight',
+                            value: 0,
+                            description: '',
+                            brand: '',
+                            width: 0,
+                            length: 0,
+                            grams: 0,
+                            packing: 100,
+                            remarks: ''
+                          });
+                        }}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between mb-2">
@@ -956,12 +1030,18 @@ export default function PurchasePage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.weight}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.rate}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.value}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <button
+                              onClick={() => handleEditItem(index)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
                             <button
                               onClick={() => removeItem(index)}
                               className="text-red-600 hover:text-red-900"
                             >
-                              Remove
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </td>
                         </tr>
@@ -1094,11 +1174,11 @@ export default function PurchasePage() {
                 </div>
                 <div className="flex items-end">
                   <button
-                    onClick={fetchInvoices}
-                    disabled={loading}
+                    onClick={() => fetchInvoices(true)}
+                    disabled={isFetching}
                     className="min-w-28 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
-                    {loading ? (
+                    {isFetching ? (
                       <>
                         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1117,7 +1197,7 @@ export default function PurchasePage() {
                       setFromDate('');
                       setToDate(new Date().toISOString().slice(0,10));
                       setSearchInvoice('');
-                      fetchInvoices();
+                      fetchInvoices(true);
                     }}
                     className="min-w-28 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
                   >
@@ -1138,7 +1218,7 @@ export default function PurchasePage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {loading ? (
+                    {loading && invoices.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
                           <div className="flex items-center justify-center space-x-2">
@@ -1157,7 +1237,7 @@ export default function PurchasePage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredInvoices.map((inv) => (
+                      invoices.map((inv) => (
                         <tr key={inv._id} className="hover:bg-gray-50 transition-colors duration-150">
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{inv.invoiceNumber || '-'}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.date?.toString()?.slice(0, 10)}</td>
@@ -1274,6 +1354,17 @@ export default function PurchasePage() {
                     )}
                   </tbody>
                 </table>
+                {hasMore && (
+                  <div className="text-center py-4">
+                    <button
+                      onClick={() => fetchInvoices()}
+                      disabled={isFetching}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+                    >
+                      {isFetching ? 'Loading...' : 'Load More'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

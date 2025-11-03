@@ -2,6 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 type Status = 'Due' | 'Paid' | 'Bounced';
 type PartyType = 'Customer' | 'Supplier';
@@ -17,6 +25,12 @@ export default function ChequeReportPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const PAGE_LIMIT = 20;
+
+
   const buildQuery = () => {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
@@ -24,22 +38,48 @@ export default function ChequeReportPage() {
     if (q) params.set('q', q);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
-    params.set('limit', '500');
     return params.toString();
   };
 
-  const fetchData = async () => {
+  const fetchData = async (isNewSearch = false) => {
+    if (isFetching) return;
+    setIsFetching(true);
+    setLoading(true);
+    setErrorMsg(null);
+
+    const currentPage = isNewSearch ? 1 : page;
+    const query = buildQuery();
+    const url = `/api/cheques?${query}&page=${currentPage}&limit=${PAGE_LIMIT}`;
+
     try {
-      setLoading(true); setErrorMsg(null);
-      const res = await fetch(`/api/cheques?${buildQuery()}`);
+      const res = await fetch(url);
       const data = await res.json();
-      if (res.ok) setItems(data.cheques || []);
-      else setErrorMsg(data.error || 'Failed to load report');
-    } catch (e) { setErrorMsg('Unexpected error while loading'); }
-    finally { setLoading(false); }
+      if (res.ok) {
+        setItems(prev => isNewSearch ? data.cheques : [...prev, ...data.cheques]);
+        setHasMore(data.pagination.hasMore);
+        if (isNewSearch) {
+          setPage(2);
+        } else {
+          setPage(prev => prev + 1);
+        }
+      } else {
+        setErrorMsg(data.error || 'Failed to load report');
+      }
+    } catch (e) {
+      setErrorMsg('Unexpected error while loading');
+    } finally {
+      setIsFetching(false);
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    const today = new Date().toISOString().slice(0, 10);
+    setTo(today);
+    fetchData(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const total = useMemo(() => items.reduce((s, c) => s + (Number(c.amount) || 0), 0), [items]);
 
@@ -54,6 +94,26 @@ export default function ChequeReportPage() {
     URL.revokeObjectURL(url);
   };
 
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Cheque Report", 14, 16);
+    autoTable(doc, {
+      head: [['#', 'Cheque No', 'Bank', 'Party', 'Issue', 'Due', 'Status', 'Amount']],
+      body: items.map(c => [
+        c.chequeNumber,
+        c.chequeNo,
+        c.bank,
+        c.partyType,
+        c.issueDate?.toString()?.slice(0,10) || '',
+        c.dueDate?.toString()?.slice(0,10) || '',
+        c.status,
+        c.amount?.toFixed?.(2) || c.amount
+      ]),
+      startY: 20,
+    });
+    doc.save('cheque-report.pdf');
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -63,13 +123,14 @@ export default function ChequeReportPage() {
             <p className="text-gray-600">Filter, analyze, and export cheque data</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={fetchData} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Refresh</button>
+            <button onClick={() => fetchData(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Refresh</button>
             <button onClick={exportCSV} className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700">Export CSV</button>
+            <button onClick={exportPDF} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">Export PDF</button>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select value={status} onChange={e=>setStatus(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg">
@@ -100,14 +161,14 @@ export default function ChequeReportPage() {
               <input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
             </div>
             <div className="flex items-end">
-              <button onClick={fetchData} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
+              <button onClick={() => fetchData(true)} className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Apply</button>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 mb-4">{errorMsg}</div>}
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 m-4">{errorMsg}</div>}
+          <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -127,9 +188,9 @@ export default function ChequeReportPage() {
                 ) : items.length === 0 ? (
                   <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-500">No records</td></tr>
                 ) : (
-                  items.map((c) => (
+                  items.map((c, index) => (
                     <tr key={c._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.chequeNumber}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.chequeNo}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.bank}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.partyType}</td>
@@ -142,9 +203,9 @@ export default function ChequeReportPage() {
                 )}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50">
-                  <td colSpan={7} className="px-6 py-3 text-right font-semibold">Total</td>
-                  <td className="px-6 py-3 text-right font-semibold">{total.toFixed(2)}</td>
+                <tr className="bg-gray-50 font-semibold">
+                  <td colSpan={7} className="px-6 py-3 text-right">Total</td>
+                  <td className="px-6 py-3 text-right">{total.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>
