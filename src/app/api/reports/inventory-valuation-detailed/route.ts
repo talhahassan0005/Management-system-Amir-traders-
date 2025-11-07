@@ -50,198 +50,163 @@ export async function GET(req: Request) {
     if (productIds) stockQuery.productId = { $in: productIds };
     if (storeIds) stockQuery.storeId = { $in: storeIds };
 
-    // Pull stock documents (current snapshot)
-  const stocks = await Stock.find(stockQuery).lean();
+    // Instead of using the aggregated Stock snapshot (which merges same product/store),
+    // fetch purchase invoice items directly so each purchase entry (reel/lot) is a separate row.
+    // This ensures we do NOT merge quantities or weights for identical item codes.
+    const PurchaseInvoice = (await import('@/models/PurchaseInvoice')).default;
 
-    if (!stocks?.length) {
-      return NextResponse.json({ rows: [] });
+    // Resolve product/store name lists (PurchaseInvoice stores product/store names, not IDs)
+    let productItems: string[] = [];
+    let storeNames: string[] = [];
+    if (productIds && productIds.length) {
+      const prodDocs = await Product.find({ _id: { $in: productIds } }).lean();
+      productItems = prodDocs.map((p: any) => p.item).filter(Boolean);
+      if (productItems.length === 0) {
+        return NextResponse.json({ rows: [], pagination: { page, limit, total: 0, hasMore: false }, totals: { quantity: 0, weight: 0, totalValue: 0 } });
+      }
     }
-
-    // Fetch products and stores referenced
-    const pIds = Array.from(new Set(stocks.map((s: any) => String(s.productId))));
-    const sIds = Array.from(new Set(stocks.map((s: any) => String(s.storeId))));
-    const [products, stores] = await Promise.all([
-      Product.find({ _id: { $in: pIds } }).lean(),
-      Store.find({ _id: { $in: sIds } }).lean(),
-    ]);
-    const pById = new Map<string, any>(products.map((p: any) => [String(p._id), p]));
-    const sById = new Map<string, any>(stores.map((s: any) => [String(s._id), s]));
-
-    // Prepare latest purchase info per product/store/lot up to 'to' date (if provided)
-  const toParam = (searchParams.get('to') || '').trim();
-    const toDate = toParam ? new Date(toParam + 'T23:59:59.999Z') : new Date();
-    const storeNames = sIds.map((id) => (sById.get(id)?.store || '')).filter(Boolean);
-    const productItems = pIds.map((id) => (pById.get(id)?.item || '')).filter(Boolean);
-
-    type Key = string;
-    const latestByKey = new Map<Key, any>();
-    if (storeNames.length && productItems.length) {
-      const PurchaseInvoice = (await import('@/models/PurchaseInvoice')).default;
-
-      if (costMode === 'latest') {
-        const agg = await PurchaseInvoice.aggregate([
-          { $unwind: '$items' },
-          { $match: {
-              date: { $lte: toDate },
-              'items.store': { $in: storeNames },
-              'items.product': { $in: productItems },
-            } },
-          { $sort: { date: -1, _id: -1 } },
-          { $group: {
-              _id: { store: '$items.store', product: '$items.product', reelNo: '$items.reelNo' },
-              rate: { $first: '$items.rate' },
-              rateOn: { $first: '$items.rateOn' },
-              qty: { $first: '$items.qty' },
-              weight: { $first: '$items.weight' },
-              value: { $first: '$items.value' },
-              date: { $first: '$date' },
-            } },
-        ]).exec();
-        for (const r of agg as any[]) {
-          const key = `${r._id.store}||${r._id.product}||${r._id.reelNo || '-'}`;
-          latestByKey.set(key, r);
-        }
-      } else {
-        // WAC: weight-average per product/store/lot; if lot missing in purchases fallback to product/store level
-        const wacAgg = await PurchaseInvoice.aggregate([
-          { $unwind: '$items' },
-          { $match: {
-              date: { $lte: toDate },
-              'items.store': { $in: storeNames },
-              'items.product': { $in: productItems },
-            } },
-          { $project: {
-              store: '$items.store',
-              product: '$items.product',
-              reelNo: { $ifNull: ['$items.reelNo', '-'] },
-              qty: { $ifNull: ['$items.qty', 0] },
-              weight: { $ifNull: ['$items.weight', 0] },
-              rate: { $ifNull: ['$items.rate', 0] },
-              rateOn: { $ifNull: ['$items.rateOn', 'Weight'] },
-              value: { $ifNull: ['$items.value', 0] },
-            } },
-          // Normalize value: if not provided, compute from rate/rateOn
-          { $addFields: {
-              _valueNorm: {
-                $cond: [
-                  { $gt: ['$value', 0] },
-                  '$value',
-                  {
-                    $cond: [
-                      { $eq: ['$rateOn', 'Quantity'] },
-                      { $multiply: [{ $ifNull: ['$rate', 0] }, { $ifNull: ['$qty', 0] }] },
-                      { $multiply: [{ $ifNull: ['$rate', 0] }, { $ifNull: ['$weight', 0] }] },
-                    ],
-                  },
-                ],
-              },
-            } },
-          { $group: {
-              _id: { store: '$store', product: '$product', reelNo: '$reelNo' },
-              totalQty: { $sum: { $ifNull: ['$qty', 0] } },
-              totalWeight: { $sum: { $ifNull: ['$weight', 0] } },
-              totalValue: { $sum: '$_valueNorm' },
-            } },
-        ]).exec();
-        for (const r of wacAgg as any[]) {
-          const key = `${r._id.store}||${r._id.product}||${r._id.reelNo || '-'}`;
-          latestByKey.set(key, { _wacQty: r.totalQty || 0, _wacWeight: r.totalWeight || 0, _wacValue: r.totalValue || 0 });
-        }
+    if (storeIds && storeIds.length) {
+      const storeDocs = await Store.find({ _id: { $in: storeIds } }).lean();
+      storeNames = storeDocs.map((s: any) => s.store).filter(Boolean);
+      if (storeNames.length === 0) {
+        return NextResponse.json({ rows: [], pagination: { page, limit, total: 0, hasMore: false }, totals: { quantity: 0, weight: 0, totalValue: 0 } });
       }
     }
 
-    const rows = stocks
-      .map((s: any) => {
-        const p = pById.get(String(s.productId)) || {};
-        const st = sById.get(String(s.storeId)) || {};
-        const item = p.item || 'N/A';
-        const storeName = st.store || 'N/A';
-        const lot = s.reelNo || '-';
-        const qty = Number(s.quantityPkts || 0);
-        const weight = Number(s.weightKg || 0);
+  // Date range for purchases (to/from)
+  const toParam = (searchParams.get('to') || '').trim();
+  const toDate = toParam ? new Date(toParam + 'T23:59:59.999Z') : new Date();
 
-        // Estimate unit cost using selected mode
-        let unitCost = 0; // cost per selected basis
-        const ratioWPerQ = qty > 0 && weight > 0 ? (weight / qty) : 0; // kg per qty from current stock snapshot
-        const keyExact = `${storeName}||${item}||${lot}`;
-        const keyFallback = `${storeName}||${item}||-`;
-        const info = latestByKey.get(keyExact) || latestByKey.get(keyFallback);
-        if (info) {
-          if (costMode === 'wac') {
-            const q = Number(info._wacQty || 0);
-            const w = Number(info._wacWeight || 0);
-            const v = Number(info._wacValue || 0);
-            const perKg = (w > 0 && v > 0) ? (v / w) : undefined;
-            const perQty = (q > 0 && v > 0) ? (v / q) : undefined;
-            if (basis === 'weight') {
-              unitCost = perKg ?? (perQty && ratioWPerQ > 0 ? perQty * (q > 0 ? (w > 0 ? (q / w) : 0) : (1 / ratioWPerQ)) : 0);
-              // simplify conversion: perQty -> perKg = perQty * (qty/weight); if w==0, use stock ratio
-              if (!perKg && perQty && ratioWPerQ > 0) unitCost = perQty * (1 / ratioWPerQ);
-            } else {
-              unitCost = perQty ?? (perKg && ratioWPerQ > 0 ? perKg * ratioWPerQ : 0);
-            }
-          } else {
-            const rate = Number(info.rate || 0);
-            const rateOn = String(info.rateOn || 'Weight');
-            const latestQty = Number(info.qty || 0);
-            const latestWeight = Number(info.weight || 0);
-            const latestValue = Number(info.value || 0);
-            const perKgFromLatest = (() => {
-              if (rateOn === 'Weight' && rate > 0) return rate;
-              if (latestValue > 0 && latestWeight > 0) return latestValue / latestWeight;
-              if (rateOn === 'Quantity' && rate > 0 && latestQty > 0 && latestWeight > 0) return rate * (latestQty / latestWeight);
-              return undefined;
-            })();
-            const perQtyFromLatest = (() => {
-              if (rateOn === 'Quantity' && rate > 0) return rate;
-              if (latestValue > 0 && latestQty > 0) return latestValue / latestQty;
-              if (rateOn === 'Weight' && rate > 0 && latestQty > 0 && latestWeight > 0) return rate * (latestWeight / latestQty);
-              return undefined;
-            })();
-            if (basis === 'weight') {
-              unitCost = (perKgFromLatest != null ? perKgFromLatest : (perQtyFromLatest != null && ratioWPerQ > 0 ? perQtyFromLatest * (1 / ratioWPerQ) : 0));
-            } else {
-              unitCost = (perQtyFromLatest != null ? perQtyFromLatest : (perKgFromLatest != null && ratioWPerQ > 0 ? perKgFromLatest * ratioWPerQ : 0));
-            }
-          }
+  // Build match for purchases within filters and date range
+    const match: any = { 'items.product': { $exists: true } };
+    if (productItems.length) match['items.product'] = { $in: productItems };
+    if (storeNames.length) match['items.store'] = { $in: storeNames };
+    if (toDate) match.date = { $lte: toDate };
+    const fromParam = (searchParams.get('from') || '').trim();
+    if (fromParam) {
+      const fromDate = new Date(fromParam + 'T00:00:00.000Z');
+      match.date = match.date ? { ...match.date, $gte: fromDate } : { $gte: fromDate };
+    }
+
+    // Unwind purchase items so each item becomes a separate document
+    // Get overall matching counts and totals (across all pages)
+    const countAgg = await PurchaseInvoice.aggregate([
+      { $unwind: '$items' },
+      { $match: match },
+      { $count: 'total' },
+    ]).exec();
+    const totalCount = (countAgg && countAgg[0] && countAgg[0].total) ? Number(countAgg[0].total) : 0;
+
+    const totalsAgg = await PurchaseInvoice.aggregate([
+      { $unwind: '$items' },
+      { $match: match },
+      { $project: {
+          qty: { $ifNull: ['$items.qty', 0] },
+          weight: { $ifNull: ['$items.weight', 0] },
+          rate: { $ifNull: ['$items.rate', 0] },
+          rateOn: { $ifNull: ['$items.rateOn', 'Weight'] },
+          value: { $ifNull: ['$items.value', 0] },
+        } },
+      { $addFields: {
+          _valueNorm: {
+            $cond: [
+              { $gt: ['$value', 0] },
+              '$value',
+              {
+                $cond: [
+                  { $eq: ['$rateOn', 'Quantity'] },
+                  { $multiply: ['$rate', '$qty'] },
+                  { $multiply: ['$rate', '$weight'] },
+                ],
+              },
+            ],
+          },
+        } },
+      { $group: {
+          _id: null,
+          totalQty: { $sum: '$qty' },
+          totalWeight: { $sum: '$weight' },
+          totalValue: { $sum: '$_valueNorm' },
+        } },
+    ]).exec();
+
+    const grandTotals = totalsAgg && totalsAgg[0] ? { quantity: Number(totalsAgg[0].totalQty || 0), weight: Number(totalsAgg[0].totalWeight || 0), totalValue: Number(totalsAgg[0].totalValue || 0) } : { quantity: 0, weight: 0, totalValue: 0 };
+
+    const purchasesAgg = await PurchaseInvoice.aggregate([
+      { $unwind: '$items' },
+      { $match: match },
+      { $project: {
+          supplier: '$supplier',
+          date: '$date',
+          store: '$items.store',
+          product: '$items.product',
+          reelNo: { $ifNull: ['$items.reelNo', '-'] },
+          qty: { $ifNull: ['$items.qty', 0] },
+          weight: { $ifNull: ['$items.weight', 0] },
+          rate: { $ifNull: ['$items.rate', 0] },
+          rateOn: { $ifNull: ['$items.rateOn', 'Weight'] },
+          value: { $ifNull: ['$items.value', 0] },
+        } },
+      { $sort: { product: 1, store: 1, date: 1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ]).exec();
+
+    // If no purchase items found, return empty
+    if (!purchasesAgg?.length) {
+      return NextResponse.json({ rows: [], pagination: { page, limit, total: 0, hasMore: false }, totals: { quantity: 0, weight: 0, totalValue: 0 } });
+    }
+
+    // Map product/store to names and product defaults
+    const uniqueProducts = Array.from(new Set(purchasesAgg.map((p: any) => p.product)));
+    const prods = await Product.find({ item: { $in: uniqueProducts } }).lean();
+    const pByItem = new Map<string, any>(prods.map((p: any) => [String(p.item), p]));
+    // Build rows directly from purchase items (each purchase item -> single row)
+    const rows = purchasesAgg.map((it: any) => {
+      const prod = pByItem.get(it.product) || {};
+      const itemName = prod.item || it.product || 'N/A';
+      const qty = Number(it.qty || 0);
+      const weight = Number(it.weight || 0);
+
+      // Compute unit cost from the purchase record: prefer explicit value, then rate/rateOn
+      let unitCost = 0;
+      if (it.value && it.value > 0) {
+        unitCost = basis === 'weight' && weight > 0 ? (it.value / weight) : (it.value / (qty || 1));
+      } else if (it.rate && it.rate > 0) {
+        if (String(it.rateOn || 'Weight') === 'Weight') {
+          unitCost = basis === 'weight' ? it.rate : (weight > 0 ? it.rate * (weight / (qty || 1)) : 0);
+        } else {
+          unitCost = basis === 'qty' ? it.rate : (qty > 0 ? it.rate * (qty / (weight || 1)) : 0);
         }
-        if (!unitCost) {
-          const fallbackPerQty = Number(p.costRateQty || 0);
-          if (fallbackPerQty > 0) {
-            if (basis === 'weight' && qty > 0 && weight > 0) {
-              unitCost = fallbackPerQty * (qty / weight);
-            } else if (basis === 'qty') {
-              unitCost = fallbackPerQty;
-            }
-          }
+      } else if (prod && prod.costRateQty) {
+        const fallbackPerQty = Number(prod.costRateQty || 0);
+        if (fallbackPerQty > 0) {
+          unitCost = basis === 'weight' && weight > 0 ? fallbackPerQty * (qty / weight) : fallbackPerQty;
         }
+      }
 
-        const totalValue = +(((basis === 'weight' ? weight : qty) * unitCost) || 0).toFixed(2);
-        return {
-          product: item,
-          store: storeName,
-          lot,
-          quantity: qty,
-          weight,
-          unitCost,
-          totalValue,
-        };
-      })
-      .sort((a, b) => a.product.localeCompare(b.product) || a.store.localeCompare(b.store));
+      const totalValue = +(((basis === 'weight' ? weight : qty) * unitCost) || 0).toFixed(2);
+      return {
+        product: itemName,
+        store: it.store || 'N/A',
+        lot: it.reelNo || '-',
+        quantity: qty,
+        weight,
+        unitCost,
+        totalValue,
+        supplier: it.supplier || '',
+        date: it.date || null,
+      };
+    });
 
-  // Pagination
-  const total = rows.length;
+    // Pagination
+  const total = totalCount;
   const start = (page - 1) * limit;
   const paged = rows.slice(start, start + limit);
   const hasMore = page * limit < total;
 
-  // Server-side totals across full query
-  const totals = rows.reduce((acc, r) => {
-    acc.quantity += Number(r.quantity || 0);
-    acc.weight += Number(r.weight || 0);
-    acc.totalValue += Number(r.totalValue || 0);
-    return acc;
-  }, { quantity: 0, weight: 0, totalValue: 0 });
+  // Server-side totals across full query (from aggregation)
+  const totals = grandTotals;
 
   return NextResponse.json({ rows: paged, pagination: { page, limit, total, hasMore }, totals });
   } catch (error: any) {

@@ -18,7 +18,7 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
-  Database,
+  
 } from 'lucide-react';
 
 const navigation = [
@@ -38,7 +38,6 @@ const navigation = [
   { name: 'Ledger Report', href: '/ledger-report', icon: BarChart3 },
   { name: 'Stock Report', href: '/stock-report', icon: BarChart3 },
   { name: 'Cheque Report', href: '/cheque-report', icon: BarChart3 },
-  { name: 'DB Status', href: '/db-status', icon: Database },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
 ];
 

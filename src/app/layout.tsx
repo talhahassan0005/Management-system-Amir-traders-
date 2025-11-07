@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from '@/components/ErrorBoundary';
 import GlobalErrorHandler from '@/components/GlobalErrorHandler';
+import AuthProvider from '@/components/AuthProvider';
+import RootAuthWrapper from '@/components/RootAuthWrapper';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -97,7 +99,12 @@ export default function RootLayout({
       <body className="antialiased">
         <ErrorBoundary>
           <GlobalErrorHandler>
-            {children}
+            <AuthProvider>
+              {/* Apply auth check to all non-public routes; skip on /login and other public paths */}
+              <RootAuthWrapper>
+                {children}
+              </RootAuthWrapper>
+            </AuthProvider>
           </GlobalErrorHandler>
         </ErrorBoundary>
       </body>

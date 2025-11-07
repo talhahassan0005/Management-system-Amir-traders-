@@ -1,13 +1,15 @@
-import { cookies } from 'next/headers';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth-options';
 import { redirect } from 'next/navigation';
-import HomeClient from './HomeClient';
+import DashboardClient from '@/components/DashboardClient';
 
-export default async function Home() {
-  const c = await cookies();
-  // NextAuth cookie names in dev and prod
-  const hasSession = !!(c.get('next-auth.session-token') || c.get('__Secure-next-auth.session-token'));
-  if (!hasSession) {
-    redirect('/login?redirect=/');
+export default async function Page() {
+  // Server-side session validation
+  const session = await getServerSession(authOptions as any);
+
+  if (!session || (session as any)?.user?.role !== 'admin') {
+    redirect(`/login?callbackUrl=${encodeURIComponent('/')}`);
   }
-  return <HomeClient />;
+
+  return <DashboardClient />;
 }

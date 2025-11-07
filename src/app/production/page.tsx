@@ -6,6 +6,7 @@ import {
   useState
 } from 'react';
 import Layout from '@/components/Layout/Layout';
+import ProductTypeahead from '@/components/ProductTypeahead';
 import {
   Loader2,
   Plus,
@@ -772,19 +773,13 @@ export default function ProductionPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
-                      <select
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                        value={quickMaterial.productId}
+                      <ProductTypeahead
+                        value={quickMaterial.productId || ''}
                         disabled={!quickMaterial.storeId}
-                        onChange={(e) => onQuickMaterialProduct(e.target.value)}
-                      >
-                        <option value="">{!quickMaterial.storeId ? 'Select store first' : 'Select Product'}</option>
-                        {getProductsForStore(quickMaterial.storeId).map((pr: Product) => (
-                          <option key={pr._id} value={pr._id}>
-                            {pr.item}
-                          </option>
-                        ))}
-                      </select>
+                        options={getProductsForStore(quickMaterial.storeId).map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
+                        placeholder={!quickMaterial.storeId ? 'Select store first' : 'Type to search product'}
+                        onSelect={(p) => onQuickMaterialProduct(p._id)}
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Reel#</label>
@@ -899,20 +894,14 @@ export default function ProductionPage() {
                                     ))}
                                   </select>
                                 </td>
-                                <td className="px-4 py-2">
-                                  <select
-                                    value={it.productId}
-                                    onChange={(e) => onChangeMaterialProduct(idx, e.target.value)}
+                                <td className="px-4 py-2 min-w-[12rem]">
+                                  <ProductTypeahead
+                                    value={it.productId || ''}
                                     disabled={!it.storeId}
-                                    className={`w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[10rem] ${!it.storeId ? 'bg-gray-200 text-gray-500 cursor-not-allowed border-gray-300' : 'bg-white'}`}
-                                  >
-                                    <option value="">{!it.storeId ? 'Select store first' : 'Select product'}</option>
-                                    {getProductsForStore(it.storeId).map((pr: Product) => (
-                                      <option key={pr._id} value={pr._id}>
-                                        {pr.item}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    options={getProductsForStore(it.storeId).map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
+                                    placeholder={!it.storeId ? 'Select store first' : 'Type to search product'}
+                                    onSelect={(p) => onChangeMaterialProduct(idx, p._id)}
+                                  />
                                 </td>
                                 <td className="px-4 py-2">
                                   <input
@@ -1084,19 +1073,13 @@ export default function ProductionPage() {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
-                        <select
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        <ProductTypeahead
+                          value={quickProduct.productId || ''}
                           disabled={!form.outputStoreId}
-                          value={quickProduct.productId}
-                          onChange={(e) => onQuickProductSelect(e.target.value)}
-                        >
-                          <option value="">Select Product</option>
-                          {products.map((pr: Product) => (
-                            <option key={pr._id} value={pr._id}>
-                              {pr.item}
-                            </option>
-                          ))}
-                        </select>
+                          options={products.map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
+                          placeholder={!form.outputStoreId ? 'Select store first' : 'Type to search product'}
+                          onSelect={(p) => onQuickProductSelect(p._id)}
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-0.5">Reel#</label>
@@ -1202,41 +1185,16 @@ export default function ProductionPage() {
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-4 py-2">
-                                <select
-                                  value={it.productId}
-                                  onChange={(e) => onChangeProductionProduct(idx, e.target.value)}
+                              <td className="px-4 py-2 min-w-[12rem]">
+                                <ProductTypeahead
+                                  value={it.productId || ''}
                                   disabled={!form.outputStoreId}
-                                  className={`w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[10rem] ${!form.outputStoreId ? 'bg-gray-200 text-gray-500 cursor-not-allowed border-gray-300' : 'bg-white'}`}
-                                >
-                                  <option value="">{!form.outputStoreId ? 'Select store first' : 'Select product'}</option>
-                                  {products.map((pr: Product) => (
-                                    <option key={pr._id} value={pr._id}>
-                                      {pr.item}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="text"
-                                  value={it.reelNo || ''}
-                                  onChange={(e) =>
-                                    setForm((p: Production) => {
-                                      const items = [...p.items];
-                                      items[idx] = { ...items[idx], reelNo: e.target.value } as any;
-                                      return { ...p, items };
-                                    })
-                                  }
-                                  className="w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[8rem]"
-                                  placeholder="Reel#"
+                                  options={products.map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
+                                  placeholder={!form.outputStoreId ? 'Select store first' : 'Type to search product'}
+                                  onSelect={(p) => onChangeProductionProduct(idx, p._id)}
                                 />
-                              </td>
-                              <td className="px-4 py-2">
-                                <input
-                                  type="number"
-                                  value={it.quantityPkts || 0}
-                                  onChange={(e) => onChangeProductionPkts(idx, Number(e.target.value) || 0)}
+(, ).)
+lue) || 0)}
                                   className="w-full h-10 px-3 py-2 border rounded text-right text-gray-900 min-w-[6rem]"
                                 />
                               </td>

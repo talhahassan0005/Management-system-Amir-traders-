@@ -14,7 +14,7 @@ export async function GET() {
     const purchaseBySupplier = await PurchaseInvoice.aggregate([
       {
         $match: {
-          supplier: { $exists: true, $ne: null, $ne: '' }
+          supplier: { $exists: true, $nin: [null, ''] }
         }
       },
       {
@@ -22,7 +22,7 @@ export async function GET() {
           _id: '$supplier',
           totalPurchases: { $sum: '$totalAmount' },
           totalPurchaseWeight: { $sum: '$weight' },
-          purchaseCount: { $count: {} },
+          purchaseCount: { $sum: 1 },
           products: { 
             $addToSet: { 
               $map: { 
@@ -68,7 +68,7 @@ export async function GET() {
               _id: null,
               totalSales: { $sum: '$items.value' },
               totalSalesWeight: { $sum: '$items.weight' },
-              salesCount: { $count: {} }
+              salesCount: { $sum: 1 }
             }
           }
         ]);

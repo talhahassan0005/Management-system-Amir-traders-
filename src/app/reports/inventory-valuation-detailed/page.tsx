@@ -111,11 +111,12 @@ export default function InventoryValuationDetailed() {
     const effectiveTotals = serverTotals ?? totals;
     const meta = buildExportMeta({ costMode, basis, filters });
     const header = `Inventory Valuation (detailed)\n${meta}`;
-    const colHead = ['Product', 'Store', 'Lot', 'Qty', 'Weight', basis === 'weight' ? 'Unit Cost/kg' : 'Unit Cost', 'Total'].join(' | ');
+    const colHead = ['Product', 'Store', 'Supplier', 'Lot', 'Qty', 'Weight', basis === 'weight' ? 'Unit Cost/kg' : 'Unit Cost', 'Total'].join(' | ');
     const maxLines = 20; // limit to avoid overly long messages
     const lines = rows.slice(0, maxLines).map((r: any) => [
       String(r.product || '-'),
       String(r.store || '-'),
+      String(r.supplier || '-'),
       String(r.lot || '-'),
       fmtInt(r.quantity),
       fmtDec2(r.weight),
@@ -229,6 +230,7 @@ export default function InventoryValuationDetailed() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lot/Batch</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Weight (kg)</th>
@@ -248,6 +250,7 @@ export default function InventoryValuationDetailed() {
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.product || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.store || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.supplier || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.lot || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                         {fmtInt(row.quantity)}
@@ -268,7 +271,7 @@ export default function InventoryValuationDetailed() {
               {rows.length > 0 && (
                 <tfoot className="bg-gray-50 sticky bottom-0 z-10">
                   <tr>
-                    <td className="px-6 py-3 text-sm font-semibold text-gray-900" colSpan={3}>Totals</td>
+                    <td className="px-6 py-3 text-sm font-semibold text-gray-900" colSpan={4}>Totals</td>
                     <td className="px-6 py-3 text-sm font-semibold text-gray-900 text-right">{fmtInt((serverTotals ?? totals).quantity)}</td>
                     <td className="px-6 py-3 text-sm font-semibold text-gray-900 text-right">{fmtDec2((serverTotals ?? totals).weight)}</td>
                     <td className="px-6 py-3 text-sm font-semibold text-gray-900 text-right">-</td>

@@ -114,10 +114,11 @@ export async function POST() {
       products: products
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating sample data:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to create sample data', details: error.message },
+      { error: 'Failed to create sample data', details: message },
       { status: 500 }
     );
   }

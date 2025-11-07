@@ -4,8 +4,10 @@ import { signOut } from 'next-auth/react';
 
 export default function LogoutPage() {
   useEffect(() => {
-    // Trigger sign out immediately and go back to login
-    signOut({ callbackUrl: '/login' });
+    // Trigger sign out immediately and go back to login on the current origin
+    // Use an absolute URL that preserves the current origin (including port)
+    // to avoid redirects to a different host/port (e.g. NEXTAUTH_URL mismatch).
+    signOut({ callbackUrl: `${window.location.origin}/login` });
   }, []);
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

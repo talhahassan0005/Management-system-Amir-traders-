@@ -910,7 +910,8 @@ export default function SaleInvoicePage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
-                    <select
+                    <input
+                      type="text"
                       value={currentItem.product}
                       onChange={(e) => {
                         const itemCode = e.target.value;
@@ -918,7 +919,7 @@ export default function SaleInvoicePage() {
                         // set base fields
                         setCurrentItem(prev => {
                           const next = { ...prev, product: itemCode } as SaleInvoiceItem;
-                        if (selectedProduct) {
+                          if (selectedProduct) {
                             next.description = selectedProduct.description || '';
                             next.brand = selectedProduct.brand || '';
                             next.length = Number(selectedProduct.length || 0);
@@ -938,12 +939,15 @@ export default function SaleInvoicePage() {
                         });
                       }}
                       className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                    >
-                      <option value="">Select Product</option>
+                      placeholder="Start typing product..."
+                      list="sale-product-list"
+                      autoComplete="off"
+                    />
+                    <datalist id="sale-product-list">
                       {availableProducts.map(product => (
-                        <option key={product.item} value={product.item}>{product.item}</option>
+                        <option key={product.item} value={product.item}>{product.description ? `${product.item} - ${product.description}` : product.item}</option>
                       ))}
-                    </select>
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">Length</label>
@@ -951,15 +955,6 @@ export default function SaleInvoicePage() {
                       type="number"
                       value={currentItem.length === 0 ? '' : currentItem.length}
                       onChange={(e) => handleItemInputChange('length', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Width</label>
-                    <input
-                      type="number"
-                      value={currentItem.width === 0 ? '' : currentItem.width}
-                      onChange={(e) => handleItemInputChange('width', e.target.value === '' ? 0 : parseInt(e.target.value) || 0)}
                       className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                     />
                   </div>

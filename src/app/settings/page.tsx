@@ -45,7 +45,7 @@ export default function SettingsPage() {
     setFormData(prev => ({
       ...prev,
       [parent]: {
-        ...prev[parent as keyof typeof prev],
+        ...(prev[parent as keyof typeof prev] as Record<string, any>),
         [field]: value,
       },
     }));

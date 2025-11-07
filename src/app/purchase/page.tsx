@@ -220,6 +220,30 @@ export default function PurchasePage() {
     }
   }, [storeLocked, globalStore]);
 
+  // Product suggestions optionally filtered by selected store.
+  const productSuggestions = useMemo(() => {
+    const store = (storeLocked && globalStore) ? String(globalStore).trim().toUpperCase() : String(currentItem.store || '').trim().toUpperCase();
+    if (!store) return products;
+    // If products include explicit store info, filter them. Otherwise show all.
+    return products.filter((p: any) => {
+      try {
+        if (!p) return false;
+        if (p.store) return String(p.store).trim().toUpperCase() === store;
+        if (p.stores && Array.isArray(p.stores)) return p.stores.map((s: any) => String(s).trim().toUpperCase()).includes(store);
+        if (p.availableStores && Array.isArray(p.availableStores)) return p.availableStores.map((s: any) => String(s).trim().toUpperCase()).includes(store);
+        // if product has storeId(s) compare by id (best-effort)
+        if (p.storeId) {
+          if (typeof p.storeId === 'string') return String(p.storeId).trim().toUpperCase() === store;
+          if (Array.isArray(p.storeId)) return p.storeId.map((s: any) => String(s).trim().toUpperCase()).includes(store);
+        }
+        // fallback: show product (cannot determine store specific)
+        return true;
+      } catch (e) {
+        return true;
+      }
+    });
+  }, [products, storeLocked, globalStore, currentItem.store]);
+
   const computeUnitWeight = (p: any): number => {
     if (!p) return 0;
     const length = Number(p.length || 0);
@@ -833,27 +857,31 @@ export default function PurchasePage() {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-0.5">Product</label>
-                        <select
+                        <input
+                          type="text"
                           value={currentItem.product}
                           onChange={(e) => handleCurrentItemChange('product', e.target.value)}
                           className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                        >
-                          <option value="">Select Product</option>
-                          {products.map((product: any) => (
+                          placeholder="Start typing product..."
+                          list="product-list"
+                          autoComplete="off"
+                        />
+                        <datalist id="product-list">
+                          {productSuggestions.map((product: any) => (
                             <option key={product.item} value={product.item}>
-                              {product.item}
+                              {product.description ? `${product.item} - ${product.description}` : product.item}
                             </option>
                           ))}
-                        </select>
+                        </datalist>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
                         <input
                           type="number"
-                          value={currentItem.qty || ''}
-                          onChange={(e) => handleCurrentItemChange('qty', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          step="0.01"
+                          value={currentItem.rate || ''}
+                          onChange={(e) => handleCurrentItemChange('rate', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
                           className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                          min={0}
                         />
                       </div>
                       <div>
@@ -863,16 +891,6 @@ export default function PurchasePage() {
                           step="0.01"
                           value={currentItem.weight || ''}
                           onChange={(e) => handleCurrentItemChange('weight', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={currentItem.rate || ''}
-                          onChange={(e) => handleCurrentItemChange('rate', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
                           className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                         />
                       </div>
