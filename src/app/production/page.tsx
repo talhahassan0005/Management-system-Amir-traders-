@@ -1193,10 +1193,29 @@ export default function ProductionPage() {
                                   placeholder={!form.outputStoreId ? 'Select store first' : 'Type to search product'}
                                   onSelect={(p) => onChangeProductionProduct(idx, p._id)}
                                 />
-(, ).)
-lue) || 0)}
+                              </td>
+                              <td className="px-4 py-2">
+                                <input
+                                  type="text"
+                                  value={it.reelNo || ''}
+                                  onChange={(e) =>
+                                    setForm((p: Production) => {
+                                      const items = [...p.items];
+                                      items[idx] = { ...items[idx], reelNo: e.target.value } as any;
+                                      return { ...p, items };
+                                    })
+                                  }
+                                  className="w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[8rem]"
+                                  placeholder="Reel#"
+                                />
+                              <td className="px-4 py-2">
+                                <input
+                                  type="number"
+                                  value={it.quantityPkts || 0}
+                                  onChange={(e) => onChangeProductionPkts(idx, Number(e.target.value) || 0)}
                                   className="w-full h-10 px-3 py-2 border rounded text-right text-gray-900 min-w-[6rem]"
                                 />
+                              </td>
                               </td>
                               <td className="px-4 py-2">
                                 <input
