@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
       PurchaseInvoice.aggregate([
         { $unwind: '$items' },
         ...(storeFilter ? [{ $match: matchPurchase }] as any[] : []),
+        // Group by store, product and reelNo when available so each reel becomes its own row
         { $group: {
-          _id: { store: '$items.store', product: '$items.product' },
+          _id: { store: '$items.store', product: '$items.product', reelNo: { $ifNull: ['$items.reelNo', ''] } },
           purchasedQty: { $sum: { $ifNull: ['$items.qty', 0] } },
           purchasedWeight: { $sum: { $ifNull: ['$items.weight', 0] } },
         }},
@@ -38,8 +39,9 @@ export async function GET(request: NextRequest) {
       SaleInvoice.aggregate([
         { $unwind: '$items' },
         ...(storeFilter ? [{ $match: matchSale }] as any[] : []),
+        // Group sales also by reelNo when present to avoid merging different reels
         { $group: {
-          _id: { store: '$items.store', product: '$items.product' },
+          _id: { store: '$items.store', product: '$items.product', reelNo: { $ifNull: ['$items.reelNo', ''] } },
           soldQty: { $sum: { $ifNull: ['$items.pkt', 0] } },
           soldWeight: { $sum: { $ifNull: ['$items.weight', 0] } },
         }},
@@ -50,18 +52,23 @@ export async function GET(request: NextRequest) {
   const byKey = new Map<Key, any>();
 
     purchases.forEach((doc: any) => {
-      const key = `${doc._id.store || ''}||${doc._id.product || ''}`;
+      const reel = doc._id.reelNo || '';
+      const key = `${doc._id.store || ''}||${doc._id.product || ''}||${reel}`;
       const cur = byKey.get(key) || { store: doc._id.store || '', product: doc._id.product || '', purchasedQty: 0, purchasedWeight: 0, soldQty: 0, soldWeight: 0 };
       cur.purchasedQty += doc.purchasedQty || 0;
       cur.purchasedWeight += doc.purchasedWeight || 0;
+      // preserve reelNo so later we can display it per-row
+      (cur as any)._reelNo = reel;
       byKey.set(key, cur);
     });
 
     sales.forEach((doc: any) => {
-      const key = `${doc._id.store || ''}||${doc._id.product || ''}`;
+      const reel = doc._id.reelNo || '';
+      const key = `${doc._id.store || ''}||${doc._id.product || ''}||${reel}`;
       const cur = byKey.get(key) || { store: doc._id.store || '', product: doc._id.product || '', purchasedQty: 0, purchasedWeight: 0, soldQty: 0, soldWeight: 0 };
       cur.soldQty += doc.soldQty || 0;
       cur.soldWeight += doc.soldWeight || 0;
+      (cur as any)._reelNo = reel;
       byKey.set(key, cur);
     });
 
@@ -85,6 +92,7 @@ export async function GET(request: NextRequest) {
         }
         allStoreIds.add(String((pr as any).outputStoreId));
       }
+
       const [prodDocs, storeDocs] = await Promise.all([
         allProdIds.size ? Product.find({ _id: { $in: Array.from(allProdIds) } }).lean() : [],
         allStoreIds.size ? Store.find({ _id: { $in: Array.from(allStoreIds) } }).lean() : [],
@@ -94,27 +102,35 @@ export async function GET(request: NextRequest) {
 
       for (const pr of prods as any[]) {
         const outStoreName = sById.get(String(pr.outputStoreId))?.store || '';
+
+        // Items produced into output store: treat as purchased into that store
         if (Array.isArray(pr.items)) {
           for (const it of pr.items) {
             const itemCode = pById.get(String(it.productId))?.item || '';
             if (!outStoreName || !itemCode) continue;
-            const key = `${outStoreName}||${itemCode}`;
+            const reel = it.reelNo || '';
+            const key = `${outStoreName}||${itemCode}||${reel}`;
             const cur = byKey.get(key) || { store: outStoreName, product: itemCode, purchasedQty: 0, purchasedWeight: 0, soldQty: 0, soldWeight: 0 };
             cur.purchasedQty += Number(it.quantityPkts || 0);
             cur.purchasedWeight += Number(it.weightKg || 0);
+            (cur as any)._reelNo = reel;
             byKey.set(key, cur);
           }
         }
+
+        // Material moved out from source stores: treat as production-out (subtract later)
         if (Array.isArray(pr.materialOut)) {
           for (const mo of pr.materialOut) {
             const moStoreName = sById.get(String(mo.storeId))?.store || '';
             const itemCode = pById.get(String(mo.productId))?.item || '';
             if (!moStoreName || !itemCode) continue;
-            const key = `${moStoreName}||${itemCode}`;
+            const reel = mo.reelNo || '';
+            const key = `${moStoreName}||${itemCode}||${reel}`;
             const cur = byKey.get(key) || { store: moStoreName, product: itemCode, purchasedQty: 0, purchasedWeight: 0, soldQty: 0, soldWeight: 0 };
             // Stash production-out as a separate field to subtract in current
             (cur as any)._prodOutQty = Number((cur as any)._prodOutQty || 0) + Number(mo.quantityPkts || 0);
             (cur as any)._prodOutWeight = Number((cur as any)._prodOutWeight || 0) + Number(mo.weightKg || 0);
+            (cur as any)._reelNo = reel;
             byKey.set(key, cur);
           }
         }
@@ -143,7 +159,8 @@ export async function GET(request: NextRequest) {
           const storeName = (sById.get(String(s.storeId))?.store) || '';
           const productItem = (pById.get(String(s.productId))?.item) || '';
           if (!storeName || !productItem) return;
-          const key: string = `${storeName}||${productItem}`;
+          const reel = s.reelNo || '';
+          const key: string = `${storeName}||${productItem}||${reel}`;
           const cur = byKey.get(key) || { store: storeName, product: productItem, purchasedQty: 0, purchasedWeight: 0, soldQty: 0, soldWeight: 0 };
           // Keep purchase/sale aggregates if present; ensure current quantities reflect Stock
           const currentQtyFromStock = Number(s.quantityPkts || 0);
@@ -151,9 +168,7 @@ export async function GET(request: NextRequest) {
           // Stash computed values temporarily on the record
           (cur as any)._currentQtyFromStock = currentQtyFromStock;
           (cur as any)._currentWeightFromStock = currentWeightFromStock;
-          if (s.reelNo) {
-            (cur as any)._reelNo = String(s.reelNo);
-          }
+          (cur as any)._reelNo = reel;
           byKey.set(key, cur);
         });
       }
