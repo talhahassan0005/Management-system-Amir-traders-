@@ -348,7 +348,8 @@ export default function PurchasePage() {
   };
 
   const addCurrentItemToGrid = () => {
-    const item = currentItem;
+    // clone currentItem to avoid accidental reference sharing with state reset
+    const item: PurchaseItem = { ...(currentItem as PurchaseItem) };
     if (!item.product) return; // require only product (like Sales)
 
     if (editingItemIndex !== null) {
@@ -361,7 +362,7 @@ export default function PurchasePage() {
       }));
       setEditingItemIndex(null);
     } else {
-      // Add new item
+      // Add new item (use cloned item so subsequent state reset doesn't clear values)
       setForm((prev) => ({
         ...prev,
         items: [
@@ -873,6 +874,15 @@ export default function PurchasePage() {
                             </option>
                           ))}
                         </datalist>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Qty</label>
+                        <input
+                          type="number"
+                          value={currentItem.qty || ''}
+                          onChange={(e) => handleCurrentItemChange('qty', e.target.value === '' ? 0 : Number(e.target.value) || 0)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-0.5">Rate</label>
