@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, Fragment } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Package, Plus, Save, Trash2 } from 'lucide-react';
-import { onStoreUpdated, onPurchaseInvoiceChanged, emitPurchaseInvoiceAdded } from '@/lib/cross-tab-event-bus';
+import { onStoreUpdated, onPurchaseInvoiceChanged, emitPurchaseInvoiceAdded, emitPurchaseInvoiceUpdated, emitPurchaseInvoiceDeleted, emitStockUpdated } from '@/lib/cross-tab-event-bus';
 
 interface PurchaseItem {
   store: string;
@@ -559,16 +559,35 @@ export default function PurchasePage() {
       }
       if (!form.paymentType) { setErrorMsg('Payment type is required'); return; }
       if (!selectedSupplier) { setErrorMsg('Please select a supplier'); return; }
-      const validItems = form.items.filter((it) => (it.store || it.product || (it.qty && it.qty > 0) || (it.weight && it.weight > 0)));
-      if (validItems.length === 0) {
+      // Build payload items from form rows but validate each row locally
+      const payloadItems: any[] = [];
+      const itemErrors: string[] = [];
+      form.items.forEach((raw, idx) => {
+        // consider a row "present" if any meaningful field is filled
+        const present = Boolean(raw.store || raw.product || (raw.qty && raw.qty > 0) || (raw.weight && raw.weight > 0));
+        if (!present) return; // skip empty rows
+        const item = {
+          ...raw,
+          qty: Number(raw.qty || 0),
+          weight: Number(raw.weight || 0),
+        } as any;
+        // local validations mirroring server-side
+        if (!item.product) {
+          itemErrors.push(`Row ${idx + 1}: product is required`);
+        }
+        if ((item.qty || 0) <= 0 && (item.weight || 0) <= 0) {
+          itemErrors.push(`Row ${idx + 1}: provide qty or weight > 0`);
+        }
+        payloadItems.push(item);
+      });
+      if (itemErrors.length > 0) {
+        setErrorMsg(itemErrors.join(', '));
+        return;
+      }
+      if (payloadItems.length === 0) {
         setErrorMsg('Please add at least one item with store, product, qty or weight');
         return;
       }
-      const payloadItems = validItems.map((it) => ({
-        ...it,
-        qty: Number(it.qty || 0),
-        weight: Number(it.weight || 0),
-      }));
       const { initialPayment, paymentMode, ...invoiceFields } = form as any;
       const payload: any = { ...invoiceFields, date: new Date(form.date).toISOString() };
       payload.supplier = selectedSupplier?.label || payload.supplier || '';
@@ -585,7 +604,8 @@ export default function PurchasePage() {
           setErrorMsg(err.error || 'Failed to update invoice');
           return;
         }
-        emitPurchaseInvoiceAdded(); // Use same event for update
+  emitPurchaseInvoiceUpdated(); // Notify listeners of update
+  emitStockUpdated(); // notify stock report and others to refresh
       } else {
         const res = await fetch('/api/purchase-invoices', {
           method: 'POST',
@@ -598,7 +618,8 @@ export default function PurchasePage() {
           setErrorMsg(err.error || 'Failed to create invoice');
           return;
         } else {
-          emitPurchaseInvoiceAdded(); // Notify other tabs/components
+          emitPurchaseInvoiceAdded(); // Notify other tabs/components (new invoice)
+          emitStockUpdated(); // notify stock report and others to refresh
           // If initial payment > 0, create a payment voucher against supplier
           const created = await res.json();
           const amount = Number(form.initialPayment || 0);
@@ -663,7 +684,8 @@ export default function PurchasePage() {
         const err = await res.json();
         console.error('Delete failed:', err.error);
       }
-      emitPurchaseInvoiceAdded(); // Use same event for delete
+  emitPurchaseInvoiceDeleted(); // Notify listeners of delete
+  emitStockUpdated(); // notify stock report and others to refresh
       await fetchInvoices();
       if (selected?._id === id) resetForm();
     } catch (e) {

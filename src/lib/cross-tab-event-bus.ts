@@ -200,8 +200,23 @@ export const emitPurchaseInvoiceAdded = () => {
   crossTabEventBus.emit('purchaseInvoiceAdded');
 };
 
+export const emitPurchaseInvoiceUpdated = () => {
+  console.log('📝 Emitting purchaseInvoiceUpdated event');
+  crossTabEventBus.emit('purchaseInvoiceUpdated');
+};
+
+export const emitPurchaseInvoiceDeleted = () => {
+  console.log('🗑️ Emitting purchaseInvoiceDeleted event');
+  crossTabEventBus.emit('purchaseInvoiceDeleted');
+};
+
 export const onPurchaseInvoiceChanged = (callback: Function) => {
-  return crossTabEventBus.on('purchaseInvoiceAdded', callback);
+  const unsub1 = crossTabEventBus.on('purchaseInvoiceAdded', callback);
+  const unsub2 = crossTabEventBus.on('purchaseInvoiceUpdated', callback);
+  const unsub3 = crossTabEventBus.on('purchaseInvoiceDeleted', callback);
+  return () => {
+    unsub1(); unsub2(); unsub3();
+  };
 };
 
 // Production events

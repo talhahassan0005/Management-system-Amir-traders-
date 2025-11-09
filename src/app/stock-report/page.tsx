@@ -108,11 +108,19 @@ export default function StockReportPage() {
         const supplier = inv.supplier || 'Unknown';
         const invDate = inv.date ? +new Date(inv.date) : undefined;
         for (const it of inv.items || []) {
-          const key = it.product;
+          // invoice item.product may contain either item code or product _id depending on source
+          let key = it.product;
+          if (!key) continue;
+          // If product list included _id->item mapping earlier, try to resolve
+          if (byIdToItem && byIdToItem.has(String(key))) {
+            key = byIdToItem.get(String(key)) as string;
+          }
           if (!key) continue;
           const entry = purchaseByItem.get(key) || { total: 0, supplierMap: new Map(), lastDate: undefined };
-          entry.total += Number(it.qty || 0);
-          entry.supplierMap.set(supplier, (entry.supplierMap.get(supplier) || 0) + Number(it.qty || 0));
+          // Support both 'qty' and legacy 'pkt' fields
+          const qty = Number(it.qty ?? it.pkt ?? 0);
+          entry.total += qty;
+          entry.supplierMap.set(supplier, (entry.supplierMap.get(supplier) || 0) + qty);
           if (invDate && (!entry.lastDate || invDate > entry.lastDate)) entry.lastDate = invDate;
           purchaseByItem.set(key, entry);
         }
