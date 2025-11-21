@@ -8,6 +8,10 @@ export interface IReceipt extends Document {
   mode: 'Cash' | 'Bank' | 'Cheque';
   amount: number;
   notes?: string;
+  chequeNo?: string;
+  bank?: string;
+  issueDate?: Date;
+  dueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +24,10 @@ const ReceiptSchema = new Schema<IReceipt>({
   mode: { type: String, enum: ['Cash', 'Bank', 'Cheque'], required: true },
   amount: { type: Number, required: true, min: 0 },
   notes: { type: String, trim: true },
+  chequeNo: { type: String, trim: true },
+  bank: { type: String, trim: true },
+  issueDate: { type: Date },
+  dueDate: { type: Date },
 }, { timestamps: true });
 
 ReceiptSchema.index({ date: -1 });

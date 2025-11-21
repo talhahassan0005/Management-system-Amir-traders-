@@ -20,6 +20,11 @@ interface Payment {
   mode: Mode;
   amount: number;
   notes?: string;
+  // Cheque-related fields
+  chequeNo?: string;
+  bank?: string;
+  issueDate?: string;
+  dueDate?: string;
 }
 
 export default function PaymentPage() {
@@ -36,6 +41,10 @@ export default function PaymentPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const PAGE_LIMIT = 20;
+  
+  // Period totals state
+  const [periodTotals, setPeriodTotals] = useState<any>(null);
+  const [loadingPeriodTotals, setLoadingPeriodTotals] = useState(false);
 
 
   const [form, setForm] = useState<Payment>({
@@ -45,6 +54,10 @@ export default function PaymentPage() {
     mode: 'Cash',
     amount: 0,
     notes: '',
+    chequeNo: '',
+    bank: '',
+    issueDate: new Date().toISOString().slice(0,10),
+    dueDate: new Date().toISOString().slice(0,10),
   });
 
   const [partyInput, setPartyInput] = useState<string>(''); // For autocomplete input
@@ -111,12 +124,48 @@ export default function PaymentPage() {
   useEffect(() => {
     fetchPayments(true);
     loadParties();
+    fetchPeriodTotals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-search when search text changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPayments(true);
+    }, 300); // Debounce for 300ms
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const fetchPeriodTotals = async () => {
+    setLoadingPeriodTotals(true);
+    try {
+      const res = await fetch('/api/payments?aggregatePeriods=true');
+      const data = await res.json();
+      if (res.ok) {
+        setPeriodTotals(data.periodTotals || null);
+      }
+    } catch (error) {
+      console.error('Error fetching period totals:', error);
+    } finally {
+      setLoadingPeriodTotals(false);
+    }
+  };
+
   const resetForm = () => {
     setSelected(null);
-    setForm({ date: new Date().toISOString().slice(0,10), partyType: 'Customer', partyId: '', mode: 'Cash', amount: 0, notes: '' });
+    setForm({ 
+      date: new Date().toISOString().slice(0,10), 
+      partyType: 'Customer', 
+      partyId: '', 
+      mode: 'Cash', 
+      amount: 0, 
+      notes: '',
+      chequeNo: '',
+      bank: '',
+      issueDate: new Date().toISOString().slice(0,10),
+      dueDate: new Date().toISOString().slice(0,10),
+    });
     setPartyInput('');
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -129,6 +178,34 @@ export default function PaymentPage() {
       setSuccessMsg(null);
       if (!form.partyId) { setErrorMsg('Please select a party'); return; }
       if (!form.amount || form.amount <= 0) { setErrorMsg('Amount must be greater than 0'); return; }
+      
+      // Validate cheque fields if mode is Cheque
+      if (form.mode === 'Cheque') {
+        if (!form.chequeNo || !form.chequeNo.trim()) {
+          setErrorMsg('Cheque number is required for Cheque mode');
+          return;
+        }
+        if (!form.bank || !form.bank.trim()) {
+          setErrorMsg('Bank name is required for Cheque mode');
+          return;
+        }
+        
+        // Check for duplicate cheque number (only for new cheques, not edits)
+        if (!selected?._id) {
+          const checkRes = await fetch(`/api/cheques?q=${encodeURIComponent(form.chequeNo)}`);
+          const checkData = await checkRes.json();
+          if (checkRes.ok && checkData.cheques && checkData.cheques.length > 0) {
+            const duplicate = checkData.cheques.find((c: any) => 
+              c.chequeNo.toLowerCase() === form.chequeNo!.toLowerCase()
+            );
+            if (duplicate) {
+              setErrorMsg(`Duplicate cheque number: ${form.chequeNo} already exists`);
+              return;
+            }
+          }
+        }
+      }
+      
       const payload = { ...form, date: new Date(form.date).toISOString() };
       const url = selected?._id ? `/api/payments/${selected._id}` : '/api/payments';
       const method = selected?._id ? 'PUT' : 'POST';
@@ -136,6 +213,7 @@ export default function PaymentPage() {
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save payment'); return; }
       await fetchPayments(true);
+      await fetchPeriodTotals(); // Refresh period totals
       resetForm();
       setSuccessMsg('Payment saved');
     } catch (e) {
@@ -157,6 +235,10 @@ export default function PaymentPage() {
       notes: p.notes || '',
       _id: p._id,
       voucherNumber: p.voucherNumber,
+      chequeNo: p.chequeNo || '',
+      bank: p.bank || '',
+      issueDate: p.issueDate?.slice(0,10) || new Date().toISOString().slice(0,10),
+      dueDate: p.dueDate?.slice(0,10) || new Date().toISOString().slice(0,10),
     });
     
     // Set party input for autocomplete
@@ -175,29 +257,193 @@ export default function PaymentPage() {
       }
       if (selected?._id === id) resetForm();
       await fetchPayments(true);
+      await fetchPeriodTotals(); // Refresh period totals
     } catch (e) {
       console.error('Error deleting payment:', e);
       setErrorMsg('Unexpected error while deleting');
     }
   };
 
+  const printPayment = (payment: Payment) => {
+    const partyName = partyLabelMap.get(payment.partyId) || 'N/A';
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Payment Receipt - ${payment.voucherNumber}</title>
+        <style>
+          @media print {
+            @page { margin: 0.5cm; }
+            body { margin: 0; }
+          }
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+          }
+          .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+          }
+          .receipt-title {
+            font-size: 18px;
+            margin: 10px 0;
+            color: #666;
+          }
+          .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+          }
+          .info-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+          }
+          .label {
+            font-weight: bold;
+            width: 150px;
+            color: #333;
+          }
+          .value {
+            color: #666;
+          }
+          .amount-section {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+          }
+          .amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+          }
+          .print-button {
+            margin: 20px auto;
+            display: block;
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+          }
+          @media print {
+            .print-button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1 class="company-name">Amir Traders</h1>
+          <p class="receipt-title">Payment Receipt</p>
+          <p style="margin: 5px 0; color: #666;">Date & Time: ${new Date().toLocaleString()}</p>
+        </div>
+        
+        <div class="info-grid">
+          <div>
+            <div class="info-row">
+              <span class="label">Voucher #:</span>
+              <span class="value">${payment.voucherNumber || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Date:</span>
+              <span class="value">${payment.date?.toString()?.slice(0,10) || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Party Type:</span>
+              <span class="value">${payment.partyType}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Party Name:</span>
+              <span class="value">${partyName}</span>
+            </div>
+          </div>
+          <div>
+            <div class="info-row">
+              <span class="label">Payment Mode:</span>
+              <span class="value">${payment.mode}</span>
+            </div>
+            ${payment.mode === 'Cheque' ? `
+              <div class="info-row">
+                <span class="label">Cheque No:</span>
+                <span class="value">${payment.chequeNo || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Bank:</span>
+                <span class="value">${payment.bank || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Due Date:</span>
+                <span class="value">${payment.dueDate?.toString()?.slice(0,10) || 'N/A'}</span>
+              </div>
+            ` : ''}
+            <div class="info-row">
+              <span class="label">Notes:</span>
+              <span class="value">${payment.notes || '-'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="amount-section">
+          <div style="text-align: center;">
+            <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Amount Paid</div>
+            <div class="amount">PKR ${payment.amount?.toFixed?.(2) || payment.amount}</div>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>This is a computer-generated receipt and does not require a signature.</p>
+          <p>© ${new Date().getFullYear()} Amir Traders. All rights reserved.</p>
+        </div>
+        
+        <button class="print-button" onclick="window.print(); window.close();">Print Receipt</button>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+  };
+
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between print:hidden">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between print:hidden gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payment Management</h1>
-            <p className="text-gray-600">Manage customer and supplier payments</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Payment Management</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage customer and supplier payments</p>
           </div>
           {/* New Payment button removed as requested */}
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {/* Payment Management Form - Increased width */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-4xl mx-auto w-full payment-print">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 max-w-4xl mx-auto w-full payment-print">
             {errorMsg && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-200 mb-4">{errorMsg}</div>}
             {successMsg && <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-200 mb-4">{successMsg}</div>}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
                 <input type="date" value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
@@ -244,6 +490,53 @@ export default function PaymentPage() {
                   <option value="Cheque">Cheque</option>
                 </select>
               </div>
+              
+              {/* Cheque fields - Show only when mode is Cheque */}
+              {form.mode === 'Cheque' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Cheque No. *</label>
+                    <input 
+                      type="text" 
+                      value={form.chequeNo || ''} 
+                      onChange={(e) => setForm((p) => ({ ...p, chequeNo: e.target.value }))} 
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                      placeholder="Enter cheque number" 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Bank *</label>
+                    <input 
+                      type="text" 
+                      value={form.bank || ''} 
+                      onChange={(e) => setForm((p) => ({ ...p, bank: e.target.value }))} 
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                      placeholder="Enter bank name" 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Issue Date</label>
+                    <input 
+                      type="date" 
+                      value={form.issueDate || ''} 
+                      onChange={(e) => setForm((p) => ({ ...p, issueDate: e.target.value }))} 
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                    <input 
+                      type="date" 
+                      value={form.dueDate || ''} 
+                      onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} 
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                    />
+                  </div>
+                </>
+              )}
+              
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
                 <input type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: Number(e.target.value) || 0 }))} className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 text-right" placeholder="0" />
@@ -254,10 +547,6 @@ export default function PaymentPage() {
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => window.print()} className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2">
-                <Printer className="w-5 h-5" />
-                <span>Print</span>
-              </button>
               <button onClick={save} disabled={saving} className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50">
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 <span>{saving ? 'Saving...' : selected?._id ? 'Update Payment' : 'Save Payment'}</span>
@@ -271,7 +560,7 @@ export default function PaymentPage() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-gray-900">Recent Payments</h3>
           </div>
-          <div className="mb-4 flex items-end gap-2">
+          <div className="mb-4">
             <div className="w-64">
               <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
               <input
@@ -282,24 +571,6 @@ export default function PaymentPage() {
                 placeholder="Voucher #, party, mode, amount, notes..."
               />
             </div>
-            <button
-              onClick={() => fetchPayments(true)}
-              disabled={isFetching}
-              className="h-10 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isFetching ? 'Searching...' : 'Search'}
-            </button>
-            {search && (
-              <button
-                onClick={() => {
-                  setSearch('');
-                  fetchPayments(true);
-                }}
-                className="h-10 px-3 rounded-lg border bg-gray-50 hover:bg-gray-100 text-gray-700"
-              >
-                Clear
-              </button>
-            )}
           </div>
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
@@ -330,13 +601,16 @@ export default function PaymentPage() {
                           <span className="text-gray-600 text-xs">{partyLabelMap.get(p.partyId) || '-'}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.mode}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.amount?.toFixed?.(2) || p.amount}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.notes || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button onClick={() => edit(p)} className="text-blue-600 hover:text-blue-900">Edit</button>
-                          <button onClick={() => p._id && remove(p._id)} className="text-red-600 hover:text-red-900">Delete</button>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{p.mode}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{p.amount?.toFixed?.(2) || p.amount}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 hidden md:table-cell">{p.notes || '-'}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
+                          <button onClick={() => printPayment(p)} className="text-green-600 hover:text-green-900 p-1" title="Print Receipt">
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => edit(p)} className="text-blue-600 hover:text-blue-900 text-xs sm:text-sm">Edit</button>
+                          <button onClick={() => p._id && remove(p._id)} className="text-red-600 hover:text-red-900 text-xs sm:text-sm">Delete</button>
                         </div>
                       </td>
                     </tr>

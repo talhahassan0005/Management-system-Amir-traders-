@@ -14,27 +14,45 @@
   --font-mono: var(--font-geist-mono);
 } */
 
-@media (prefers-color-scheme: dark) {
+/* Disabled dark mode - always use light mode */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #171717;
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scroll on mobile */
+}
+
+/* Prevent horizontal overflow on all containers */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Ensure responsive images */
+img {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Ensure headings and form labels are not gray anywhere, except for sidebar header */
-h2, h3, h4, h5, h6, label {
+h1, h2, h3, h4, h5, h6, label {
   color: #111827 !important; /* gray-900 */
 }
 
 /* Allow sidebar header to have custom colors */
 .sidebar-header h1 {
-  color: inherit !important;
+  color: #FFFFFF !important;
+}
+
+/* Allow white text in gradient buttons (Store IN/OUT) */
+.bg-gradient-to-r h3 {
+  color: #FFFFFF !important;
 }
 
 /* Input text color */

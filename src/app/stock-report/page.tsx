@@ -226,8 +226,8 @@ export default function StockReportPage() {
   }, [rows, q, useStore, filterStore, useCategory, filterCategory, useBrand, filterBrand, useGrams, filterGrams, useLength, filterLength, useWidth, filterWidth, useItemCode, filterItemCode, useReelNo, filterReelNo]);
 
   const exportCSV = () => {
-  const header = ['Sr#','Item Code','Description','Length','Width','Grams','Reel No.','Type','Packet','Weight','Produced (Pkt)','Purchased (Pkt)','Date','Purchased From'];
-  const rowsCsv = filtered.map((r, idx) => [idx+1, r.itemCode, r.description, r.length ?? '', r.width ?? '', r.grams ?? '', r.reelNo ?? '', r.type ?? '', r.packets ?? '', r.weightKg ?? '', r.producedPkt ?? '', r.purchasedPkt ?? '', r.date ?? '', r.purchasedFrom || '']);
+  const header = ['Sr#','Item Code','Description','Length','Width','Grams','Reel No.','Type','Packet','Weight','Purchased (Pkt)'];
+  const rowsCsv = filtered.map((r, idx) => [idx+1, r.itemCode, r.description, r.length ?? '', r.width ?? '', r.grams ?? '', r.reelNo ?? '', r.type ?? '', r.packets ?? '', r.weightKg ?? '', r.purchasedPkt ?? '']);
     const csv = [header, ...rowsCsv].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -236,28 +236,91 @@ export default function StockReportPage() {
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' });
-    doc.text("Amir Traders – Stock/Godown Report", 14, 16);
-    autoTable(doc, {
-      head: [['Sr#', 'Item Code', 'Description', 'Length', 'Width', 'Grams', 'Reel No.', 'Type', 'Packet', 'Weight', 'Produced (Pkt)', 'Purchased (Pkt)', 'Date', 'Purchased From']],
-      body: filtered.map((r, idx) => [
-        idx + 1,
-        r.itemCode,
-        r.description,
-        r.length ?? '',
-        r.width ?? '',
-        r.grams ?? '',
-        r.reelNo ?? '',
-        r.type ?? '',
-        r.packets ?? '',
-        r.weightKg ?? '',
-        r.producedPkt ?? '',
-        r.purchasedPkt ?? '',
-        r.date ?? '',
-        r.purchasedFrom || ''
-      ]),
-      startY: 20,
-    });
-    doc.save('stock-godown-report.pdf');
+    
+    // Add letterhead with logo
+    const img = new Image();
+    img.src = '/Logo.png';
+    
+    img.onload = () => {
+      // Add logo (centered at top)
+      const imgWidth = 25;
+      const imgHeight = 25;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const imgX = (pageWidth - imgWidth) / 2;
+      doc.addImage(img, 'PNG', imgX, 5, imgWidth, imgHeight);
+      
+      // Company name
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Amir Traders', pageWidth / 2, 35, { align: 'center' });
+      
+      // Report title
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Stock/Godown Report', pageWidth / 2, 42, { align: 'center' });
+      
+      // Date
+      doc.setFontSize(10);
+      const reportDate = new Date().toLocaleDateString('en-GB');
+      doc.text(`Date: ${reportDate}`, pageWidth / 2, 48, { align: 'center' });
+      
+      // Add divider line
+      doc.setLineWidth(0.5);
+      doc.line(14, 52, pageWidth - 14, 52);
+      
+      // Table
+      autoTable(doc, {
+        head: [['Sr#', 'Item Code', 'Description', 'Length', 'Width', 'Grams', 'Reel No.', 'Type', 'Packet', 'Weight', 'Purchased (Pkt)']],
+        body: filtered.map((r, idx) => [
+          idx + 1,
+          r.itemCode,
+          r.description,
+          r.length ?? '',
+          r.width ?? '',
+          r.grams ?? '',
+          r.reelNo ?? '',
+          r.type ?? '',
+          r.packets ?? '',
+          r.weightKg ?? '',
+          r.purchasedPkt ?? ''
+        ]),
+        startY: 56,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' }
+      });
+      
+      doc.save('stock-godown-report.pdf');
+    };
+    
+    // Fallback if image fails to load
+    img.onerror = () => {
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      doc.text('Amir Traders', pageWidth / 2, 15, { align: 'center' });
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Stock/Godown Report', pageWidth / 2, 22, { align: 'center' });
+      
+      autoTable(doc, {
+        head: [['Sr#', 'Item Code', 'Description', 'Length', 'Width', 'Grams', 'Reel No.', 'Type', 'Packet', 'Weight', 'Purchased (Pkt)']],
+        body: filtered.map((r, idx) => [
+          idx + 1,
+          r.itemCode,
+          r.description,
+          r.length ?? '',
+          r.width ?? '',
+          r.grams ?? '',
+          r.reelNo ?? '',
+          r.type ?? '',
+          r.packets ?? '',
+          r.weightKg ?? '',
+          r.purchasedPkt ?? ''
+        ]),
+        startY: 28,
+      });
+      doc.save('stock-godown-report.pdf');
+    };
   };
 
   return (
@@ -403,17 +466,14 @@ export default function StockReportPage() {
                   <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Type</th>
                   <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Packet</th>
                   <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Weight</th>
-                  <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Produced (Pkt)</th>
                   <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Purchased (Pkt)</th>
-                  <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Date</th>
-                  <th className="border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900">Purchased From</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={14} className="px-6 py-8 text-center text-gray-600">Loading...</td></tr>
+                  <tr><td colSpan={11} className="px-6 py-8 text-center text-gray-600">Loading...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={14} className="px-6 py-8 text-center text-gray-600">No items</td></tr>
+                  <tr><td colSpan={11} className="px-6 py-8 text-center text-gray-600">No items</td></tr>
                 ) : (
                   filtered.map((r, idx) => (
                     <tr key={`${r.itemCode}-${idx}`} className="odd:bg-white even:bg-gray-50 hover:bg-blue-50">
@@ -427,10 +487,7 @@ export default function StockReportPage() {
                       <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.type ?? '-'}</td>
                       <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.packets ?? '-'}</td>
                       <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.weightKg ?? '-'}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.producedPkt ?? '-'}</td>
                       <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.purchasedPkt ?? '-'}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.date || '-'}</td>
-                      <td className="border border-gray-300 px-3 py-2 text-sm text-gray-900">{r.purchasedFrom || '-'}</td>
                     </tr>
                   ))
                 )}

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
+import { useRouter } from 'next/navigation';
+import { Edit2 } from 'lucide-react';
 
 type PartyType = 'Customer' | 'Supplier';
 interface Option { _id: string; label: string }
@@ -19,6 +21,7 @@ interface Row {
 }
 
 export default function LedgerReportPage() {
+  const router = useRouter();
   const [partyType, setPartyType] = useState<PartyType>('Customer');
   const [partyId, setPartyId] = useState('');
   const [customers, setCustomers] = useState<Option[]>([]);
@@ -32,6 +35,21 @@ export default function LedgerReportPage() {
   const [openingBalance, setOpeningBalance] = useState<number>(0);
 
   const partyOptions = useMemo(() => partyType === 'Customer' ? customers : suppliers, [partyType, customers, suppliers]);
+
+  // Helper function to determine invoice type and navigate
+  const handleEditInvoice = (voucherNo: string, itemName: string) => {
+    // Determine if it's Sale or Purchase based on itemName or voucher pattern
+    if (itemName.includes('Sale Invoice') || voucherNo.startsWith('SI-')) {
+      router.push('/sale');
+    } else if (itemName.includes('Purchase Invoice') || voucherNo.startsWith('PI-')) {
+      router.push('/purchase');
+    } else if (voucherNo.startsWith('RC-')) {
+      router.push('/receipt');
+    } else if (voucherNo.startsWith('PV-')) {
+      router.push('/payment');
+    }
+    // For other types, we could add more conditions
+  };
 
   const loadParties = async () => {
     try {
@@ -152,6 +170,36 @@ export default function LedgerReportPage() {
         <style>{`
           @media print {
             @page { size: A4 landscape; margin: 10mm; }
+            /* Letterhead styling for print */
+            .print-header {
+              text-align: center;
+              margin-bottom: 20px;
+              padding-bottom: 15px;
+              border-bottom: 2px solid #333;
+            }
+            .print-header img {
+              display: block;
+              margin: 0 auto 10px auto;
+              width: 60px;
+              height: 60px;
+            }
+            .print-header h1 {
+              font-size: 24px;
+              font-weight: bold;
+              margin: 5px 0;
+              color: #000;
+            }
+            .print-header h2 {
+              font-size: 16px;
+              font-weight: normal;
+              margin: 3px 0;
+              color: #333;
+            }
+            .print-header p {
+              font-size: 12px;
+              margin: 2px 0;
+              color: #666;
+            }
             /* Hide interactive UI already uses print:hidden on header */
             table { width: 100%; border-collapse: collapse; }
             thead { display: table-header-group; }
@@ -161,6 +209,15 @@ export default function LedgerReportPage() {
             .print-table th, .print-table td { padding: 4px 6px !important; }
           }
         `}</style>
+        
+        {/* Print-only letterhead */}
+        <div className="hidden print:block print-header">
+          <img src="/Logo.png" alt="Amir Traders Logo" />
+          <h1>Amir Traders</h1>
+          <h2>Ledger Report</h2>
+          <p suppressHydrationWarning>Date: {now ? new Intl.DateTimeFormat('en-GB').format(now) : ''}</p>
+        </div>
+        
         <div className="print:hidden">
           <h1 className="text-2xl font-bold text-gray-900">Ledger Report</h1>
           <p className="text-gray-600" suppressHydrationWarning>As on {now ? new Intl.DateTimeFormat('en-GB').format(now) : ''}</p>
@@ -245,13 +302,14 @@ export default function LedgerReportPage() {
                   <th className="border border-gray-300 px-2 py-2 text-right text-xs font-semibold text-gray-900">Debit</th>
                   <th className="border border-gray-300 px-2 py-2 text-right text-xs font-semibold text-gray-900">Credit</th>
                   <th className="border border-gray-300 px-2 py-2 text-right text-xs font-semibold text-gray-900">Balance</th>
+                  <th className="border border-gray-300 px-2 py-2 text-center text-xs font-semibold text-gray-900 print:hidden">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={11} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
+                  <tr><td colSpan={12} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={11} className="px-6 py-8 text-center text-gray-500">No records</td></tr>
+                  <tr><td colSpan={12} className="px-6 py-8 text-center text-gray-500">No records</td></tr>
                 ) : (
                   rows.map((r, idx) => (
                     <tr key={idx} className="odd:bg-white even:bg-gray-50">
@@ -266,6 +324,18 @@ export default function LedgerReportPage() {
                       <td className="border border-gray-300 px-2 py-1 text-xs text-right text-gray-900">{r.debit ? r.debit.toFixed(2) : ''}</td>
                       <td className="border border-gray-300 px-2 py-1 text-xs text-right text-gray-900">{r.credit ? r.credit.toFixed(2) : ''}</td>
                       <td className="border border-gray-300 px-2 py-1 text-xs text-right text-gray-900">{r.balance?.toFixed?.(2) || r.balance}</td>
+                      <td className="border border-gray-300 px-2 py-1 text-xs text-center print:hidden">
+                        {(r.itemName?.includes('Invoice') || r.voucherNo?.startsWith('SI-') || r.voucherNo?.startsWith('PI-') || r.voucherNo?.startsWith('RC-') || r.voucherNo?.startsWith('PV-')) && (
+                          <button
+                            onClick={() => handleEditInvoice(r.voucherNo, r.itemName || '')}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                            title="Edit Invoice"
+                          >
+                            <Edit2 size={12} />
+                            <span className="text-xs">Edit</span>
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -276,6 +346,7 @@ export default function LedgerReportPage() {
                   <td className="border border-gray-300 px-2 py-2 text-xs text-right text-gray-900">{totals.debit.toFixed(2)}</td>
                   <td className="border border-gray-300 px-2 py-2 text-xs text-right text-gray-900">{totals.credit.toFixed(2)}</td>
                   <td className="border border-gray-300 px-2 py-2 text-xs text-right text-gray-900">{totals.balance.toFixed(2)}</td>
+                  <td className="border border-gray-300 px-2 py-2 print:hidden"></td>
                 </tr>
               </tfoot>
             </table>

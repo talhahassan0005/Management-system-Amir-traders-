@@ -11,6 +11,33 @@ export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     const { searchParams } = new URL(request.url);
+    const aggregatePeriods = searchParams.get('aggregatePeriods') === 'true';
+    
+    // If requesting period aggregation
+    if (aggregatePeriods) {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+
+      const [todayPayments, weekPayments, monthPayments, yearPayments] = await Promise.all([
+        Payment.find({ date: { $gte: startOfDay } }),
+        Payment.find({ date: { $gte: startOfWeek } }),
+        Payment.find({ date: { $gte: startOfMonth } }),
+        Payment.find({ date: { $gte: startOfYear } }),
+      ]);
+
+      const today = todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const week = weekPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const month = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const year = yearPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      return NextResponse.json({ periodTotals: { today, week, month, year } });
+    }
+    
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const partyType = searchParams.get('partyType');

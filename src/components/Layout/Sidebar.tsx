@@ -18,7 +18,9 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
-  
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  RotateCcw,
 } from 'lucide-react';
 
 const navigation = [
@@ -26,7 +28,11 @@ const navigation = [
   { name: 'Product', href: '/product', icon: Package },
   { name: 'Stock Lookup', href: '/stock-lookup', icon: BarChart3 },
   { name: 'Sale', href: '/sale', icon: ShoppingCart },
+  { name: 'Sale Return', href: '/sale-return', icon: RotateCcw },
   { name: 'Purchase', href: '/purchase', icon: Package },
+  { name: 'Purchase Return', href: '/purchase-return', icon: RotateCcw },
+  { name: 'Store IN', href: '/storein', icon: ArrowDownToLine },
+  { name: 'Store OUT', href: '/storeout', icon: ArrowUpFromLine },
   { name: 'Payment', href: '/payment', icon: DollarSign },
   { name: 'Receipt', href: '/receipt', icon: FileText },
   { name: 'Customer', href: '/customer', icon: Users },
@@ -66,9 +72,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         }`}
       >
         {/* Fixed Header */}
-        <div className="flex items-center justify-between h-16 px-6 bg-gradient-to-r from-blue-600 to-blue-700 flex-shrink-0 shadow-lg">
-          <div className="flex items-center space-x-3 sidebar-header">
-            <div className="w-8 h-8 bg-white rounded-full p-1 shadow-md">
+        <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 bg-gradient-to-r from-blue-500 to-blue-600 flex-shrink-0 shadow-lg">
+          <div className="flex items-center space-x-2 sm:space-x-3 sidebar-header">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full p-1 shadow-md flex-shrink-0">
               <img 
                 src="/Logo.png" 
                 alt="Amir Traders Logo" 
@@ -76,11 +82,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               />
             </div>
             <h1 
+              className="text-white font-bold tracking-wide uppercase"
               style={{ 
-                fontSize: '1.25rem',
-                fontWeight: 'bold',
-                letterSpacing: '0.025em',
-                color: '#FFFFFF !important',
+                fontSize: 'clamp(1rem, 4vw, 1.25rem)',
                 margin: 0,
                 padding: 0
               }}
@@ -92,7 +96,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             className="lg:hidden text-white hover:text-gray-200 transition-colors duration-200"
             onClick={() => setIsOpen(false)}
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 

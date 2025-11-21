@@ -26,18 +26,12 @@ export interface ISaleInvoice extends Document {
   customer: string;
   cDays: number;
   date: Date;
-  reference: string;
-  deliveredTo: string;
   limit: number;
   balance: number;
   paymentType: 'Cash' | 'Credit' | 'Code';
   deliveryAddress: string;
-  adda: string;
-  biltyNo: string;
   remarks: string;
   biltyDate: Date;
-  ctn: string;
-  deliveredBy: string;
   items: ISaleInvoiceItem[];
   totalAmount: number;
   discountPercent: number;
@@ -90,12 +84,6 @@ const SaleInvoiceSchema: Schema = new Schema({
     type: Date,
     required: true,
   },
-  reference: {
-    type: String,
-  },
-  deliveredTo: {
-    type: String,
-  },
   limit: {
     type: Number,
     default: 0,
@@ -112,23 +100,11 @@ const SaleInvoiceSchema: Schema = new Schema({
   deliveryAddress: {
     type: String,
   },
-  adda: {
-    type: String,
-  },
-  biltyNo: {
-    type: String,
-  },
   remarks: {
     type: String,
   },
   biltyDate: {
     type: Date,
-  },
-  ctn: {
-    type: String,
-  },
-  deliveredBy: {
-    type: String,
   },
   items: [SaleInvoiceItemSchema],
   totalAmount: {

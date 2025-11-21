@@ -46,14 +46,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 print:hidden">
-      <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+      <div className="flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4 lg:px-6">
         {/* Left side */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <button
-            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="lg:hidden p-1.5 sm:p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             onClick={onMenuClick}
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           {/* Quick create: Store */}
@@ -68,11 +68,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Notifications removed per request */}
 
           {/* User menu */}
-          <div className="flex items-center space-x-3" ref={menuRef}>
+          <div className="flex items-center space-x-2 sm:space-x-3" ref={menuRef}>
             <div className="hidden md:block text-right">
               {status === 'loading' ? (
                 <>
@@ -95,15 +95,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onClick={handleAvatarClick}
               aria-haspopup="true"
               aria-expanded={open}
-              className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {status === 'authenticated' && session?.user?.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={session.user.image as string} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+                <img src={session.user.image as string} alt="avatar" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
               ) : (
-                <User className="w-4 h-4 text-blue-600" />
+                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
               )}
-              <ChevronDown className="w-3 h-3 text-gray-600 ml-1" />
+              <ChevronDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-600 ml-0.5 sm:ml-1" />
             </button>
 
             {/* Dropdown */}

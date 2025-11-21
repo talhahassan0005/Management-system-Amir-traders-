@@ -16,6 +16,9 @@ import {
 type ReportCard = { name: string; href: string; desc: string; icon: 'layers'|'file'|'wallet'|'credit'|'clipboard'|'up'|'down'|'bar'|'pie'|'users' };
 
 const reports: ReportCard[] = [
+  { name: 'Purchase Report', href: '/reports/purchase-report', desc: 'View all purchase invoices with filters', icon: 'file' },
+  { name: 'Sale Report', href: '/reports/sale-report', desc: 'View all sale invoices with filters', icon: 'file' },
+  { name: 'Store Report', href: '/reports/store-report', desc: 'View all store transactions with filters', icon: 'file' },
   { name: 'Inventory Valuation', href: '/reports/inventory-valuation', desc: 'Open Inventory Valuation', icon: 'layers' },
   { name: 'Income Statement', href: '/reports/income-statement', desc: 'Open Income Statement', icon: 'file' },
   { name: 'Balance Sheet', href: '/reports/balance-sheet', desc: 'Open Balance Sheet', icon: 'file' },

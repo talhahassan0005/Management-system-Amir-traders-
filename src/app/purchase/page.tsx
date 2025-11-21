@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState, Fragment } from 'react';
+import Link from 'next/link';
 import Layout from '@/components/Layout/Layout';
-import { Loader2, Package, Plus, Save, Trash2 } from 'lucide-react';
+import { Loader2, Package, Plus, Save, Trash2, RotateCcw } from 'lucide-react';
 import { onStoreUpdated, onPurchaseInvoiceChanged, emitPurchaseInvoiceAdded, emitPurchaseInvoiceUpdated, emitPurchaseInvoiceDeleted, emitStockUpdated } from '@/lib/cross-tab-event-bus';
 
 interface PurchaseItem {
@@ -708,6 +709,12 @@ export default function PurchasePage() {
             <h1 className="text-2xl font-bold text-gray-900">Purchase Invoice</h1>
             <p className="text-gray-600">Manage purchase invoices and supplier transactions</p>
           </div>
+          <Link href="/purchase-return">
+            <button className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2">
+              <RotateCcw size={18} />
+              Purchase Return
+            </button>
+          </Link>
         </div>
 
         
@@ -1263,6 +1270,7 @@ export default function PurchasePage() {
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Invoice</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Items</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Total Weight</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Amount</th>
                       <th className="px-3 py-2 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
                     </tr>
@@ -1270,7 +1278,7 @@ export default function PurchasePage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {loading && invoices.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
                           <div className="flex items-center justify-center space-x-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                             <span className="text-sm">Loading...</span>
@@ -1279,7 +1287,7 @@ export default function PurchasePage() {
                       </tr>
                     ) : invoices.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
                           <div className="flex flex-col items-center space-y-2">
                             <Package className="w-6 h-6 text-gray-400" />
                             <span className="text-sm">No invoices found</span>
@@ -1292,6 +1300,7 @@ export default function PurchasePage() {
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{inv.invoiceNumber || '-'}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.date?.toString()?.slice(0, 10)}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.items?.length || 0}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{inv.weight ? `${inv.weight.toFixed(2)} kg` : '-'}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">PKR {inv.totalAmount?.toFixed?.(2) || inv.totalAmount}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center justify-center space-x-1">

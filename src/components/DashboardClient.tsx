@@ -6,7 +6,8 @@ import StatsCard from '@/components/Dashboard/StatsCard';
 import SalesChart from '@/components/Dashboard/SalesChart';
 import RecentOrders from '@/components/Dashboard/RecentOrders';
 import SupplierProfitTable from '@/components/Dashboard/SupplierProfitTable';
-import { Users, Package, ShoppingCart, DollarSign } from 'lucide-react';
+import { Users, Package, ShoppingCart, DollarSign, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import Link from 'next/link';
 
 interface DashboardStats {
   totalRevenue: {
@@ -85,9 +86,9 @@ export default function DashboardClient() {
     <Layout>
       <div className="space-y-6">
         {/* Page Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
-          <h1 className="text-3xl font-bold mb-2">Amir Traders Dashboard</h1>
-          <p className="text-blue-100 text-lg">Welcome back! Here's what's happening with your business today.</p>
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 sm:p-6 text-white shadow-lg">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2">Amir Traders Dashboard</h1>
+          <p className="text-blue-100 text-sm sm:text-base md:text-lg">Welcome back! Here's what's happening with your business today.</p>
         </div>
 
         {/* Error Message */}
@@ -151,6 +152,44 @@ export default function DashboardClient() {
               />
             </>
           ) : null}
+        </div>
+
+        {/* Quick Access - Store Operations */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-4">Quick Access - Store Operations</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link
+              href="/storein"
+              className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+            >
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <ArrowDownToLine className="w-6 h-6 sm:w-8 sm:h-8 text-white flex-shrink-0" />
+                <div>
+                  <h3 className="text-white font-bold text-base sm:text-lg">Store IN</h3>
+                  <p className="text-blue-100 text-xs sm:text-sm">Add inventory to stores</p>
+                </div>
+              </div>
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+            
+            <Link
+              href="/storeout"
+              className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+            >
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <ArrowUpFromLine className="w-6 h-6 sm:w-8 sm:h-8 text-white flex-shrink-0" />
+                <div>
+                  <h3 className="text-white font-bold text-base sm:text-lg">Store OUT</h3>
+                  <p className="text-blue-100 text-xs sm:text-sm">Remove inventory from stores</p>
+                </div>
+              </div>
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
         </div>
 
         {/* Charts and Tables */}

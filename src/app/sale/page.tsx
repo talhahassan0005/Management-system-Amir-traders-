@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import Layout from '@/components/Layout/Layout';
-import { Save, Plus, Printer, Pencil, Trash2 } from 'lucide-react';
+import { Save, Plus, Printer, Pencil, Trash2, RotateCcw, Search as SearchIcon } from 'lucide-react';
 import { onStoreUpdated, emitSaleInvoiceAdded, emitSaleInvoiceUpdated, emitSaleInvoiceDeleted, onSaleInvoiceChanged } from '@/lib/cross-tab-event-bus';
+import SaleInvoiceSearchModal from '@/components/SaleInvoiceSearchModal';
 
 interface SaleInvoiceItem {
   store: string;
@@ -32,18 +34,12 @@ interface SaleInvoice {
   customer: string;
   cDays: number;
   date: string;
-  reference: string;
-  deliveredTo: string;
   limit: number;
   balance: number;
   paymentType: 'Cash' | 'Credit' | 'Code';
   deliveryAddress: string;
-  adda: string;
-  biltyNo: string;
   remarks: string;
   biltyDate: string;
-  ctn: string;
-  deliveredBy: string;
   items: SaleInvoiceItem[];
   totalAmount: number;
   discountPercent: number;
@@ -60,31 +56,26 @@ interface SaleInvoice {
 export default function SaleInvoicePage() {
   // Search by Invoice # for Sales Records
   const [saleSearch, setSaleSearch] = useState('');
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const makeInitialInvoice = (): SaleInvoice => ({
     invoiceNumber: 'SI-017596',
     customer: '',
-    cDays: 0,
+    cDays: '' as any,
     date: new Date().toISOString().split('T')[0],
-    reference: '',
-    deliveredTo: '',
-    limit: 0,
-    balance: 0,
+    limit: '' as any,
+    balance: '' as any,
     paymentType: 'Cash',
     deliveryAddress: '',
-    adda: '',
-    biltyNo: '',
     remarks: '',
     biltyDate: new Date().toISOString().split('T')[0],
-    ctn: '',
-    deliveredBy: '',
     items: [],
     totalAmount: 0,
-    discountPercent: 0,
-    discountRs: 0,
-    freight: 0,
-    labour: 0,
+    discountPercent: '' as any,
+    discountRs: '' as any,
+    freight: '' as any,
+    labour: '' as any,
     netAmount: 0,
-    receive: 0,
+    receive: '' as any,
     totalWeight: 0,
   });
   const [products, setProducts] = useState<any[]>([]);
@@ -271,6 +262,15 @@ export default function SaleInvoicePage() {
     }));
   };
 
+  const handleSelectInvoiceFromModal = (selectedInvoice: any) => {
+    setInvoice({
+      ...selectedInvoice,
+      items: selectedInvoice.items || []
+    });
+    setIsEditingInvoice(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleItemInputChange = (field: keyof SaleInvoiceItem, value: any) => {
     setCurrentItem(prev => {
       const next = { ...prev, [field]: value } as SaleInvoiceItem;
@@ -291,7 +291,7 @@ export default function SaleInvoicePage() {
   };
 
   const [currentItem, setCurrentItem] = useState<SaleInvoiceItem>({
-    store: 'GODOWN',
+    store: '',
     product: '',
     length: 0,
     width: 0,
@@ -304,7 +304,7 @@ export default function SaleInvoicePage() {
     pkt: 0,
     weight: 0,
     stock: 0,
-    rate: 0,
+    rate: '' as any,
     rateOn: 'Weight',
     remarks: '',
     value: 0,
@@ -400,7 +400,7 @@ export default function SaleInvoicePage() {
         }));
       }
       setCurrentItem({
-        store: 'GODOWN',
+        store: '',
         product: '',
         length: 0,
         width: 0,
@@ -413,7 +413,7 @@ export default function SaleInvoicePage() {
         pkt: 0,
         weight: 0,
         stock: 0,
-        rate: 0,
+        rate: '' as any,
         rateOn: 'Weight',
         remarks: '',
         value: 0,
@@ -618,7 +618,6 @@ export default function SaleInvoicePage() {
         <div><strong>Invoice#:</strong> ${invoice.invoiceNumber}</div>
         <div><strong>Date:</strong> ${invoice.date}</div>
         <div><strong>Customer:</strong> ${invoice.customer}</div>
-        <div><strong>Delivered To:</strong> ${invoice.deliveredTo}</div>
       </div>
     `;
 
@@ -686,6 +685,21 @@ export default function SaleInvoicePage() {
             <h1 className="text-2xl font-bold text-gray-900">Sale Invoice</h1>
             <p className="text-gray-600">Create and manage sale invoices</p>
           </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsSearchModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <SearchIcon size={18} />
+              Search Invoices
+            </button>
+            <Link href="/sale-return">
+              <button className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2">
+                <RotateCcw size={18} />
+                Sale Return
+              </button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -740,24 +754,7 @@ export default function SaleInvoicePage() {
                     className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Reference#</label>
-                  <input
-                    type="text"
-                    value={invoice.reference}
-                    onChange={(e) => handleInputChange('reference', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Delivered To</label>
-                  <input
-                    type="text"
-                    value={invoice.deliveredTo}
-                    onChange={(e) => handleInputChange('deliveredTo', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                  />
-                </div>
+                {/* Reference and Delivered To fields removed per requirements */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">Limit</label>
                   <input
@@ -829,50 +826,14 @@ export default function SaleInvoicePage() {
                 />
               </div>
 
-              {/* Bilty Details */}
+              {/* Bilty Details - Adda, Bilty No, CTN, and Delivered By fields removed per requirements */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-1 mb-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Adda</label>
-                  <input
-                    type="text"
-                    value={invoice.adda}
-                    onChange={(e) => handleInputChange('adda', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Bilty No.</label>
-                  <input
-                    type="text"
-                    value={invoice.biltyNo}
-                    onChange={(e) => handleInputChange('biltyNo', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">Bilty Date</label>
                   <input
                     type="date"
                     value={invoice.biltyDate}
                     onChange={(e) => handleInputChange('biltyDate', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">CTN</label>
-                  <input
-                    type="text"
-                    value={invoice.ctn}
-                    onChange={(e) => handleInputChange('ctn', e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Delivered By</label>
-                  <input
-                    type="text"
-                    value={invoice.deliveredBy}
-                    onChange={(e) => handleInputChange('deliveredBy', e.target.value)}
                     className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm"
                   />
                 </div>
@@ -1339,7 +1300,7 @@ export default function SaleInvoicePage() {
                   type="text"
                   value={saleSearch}
                   onChange={(e) => setSaleSearch(e.target.value)}
-                  placeholder="Search by Invoice #"
+                  placeholder="Search by Invoice # or Material"
                       className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
@@ -1358,6 +1319,12 @@ export default function SaleInvoicePage() {
                       Customer
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Materials
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Weight
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Net Amount
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1367,13 +1334,23 @@ export default function SaleInvoicePage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {saleInvoices
-                    .filter((si) =>
-                      saleSearch.trim() === ''
-                        ? true
-                        : String(si.invoiceNumber || '')
-                            .toLowerCase()
-                            .includes(saleSearch.trim().toLowerCase())
-                    )
+                    .filter((si) => {
+                      if (saleSearch.trim() === '') return true;
+                      const searchLower = saleSearch.trim().toLowerCase();
+                      
+                      // Search by invoice number
+                      const invoiceMatch = String(si.invoiceNumber || '')
+                        .toLowerCase()
+                        .includes(searchLower);
+                      
+                      // Search by product/material in items
+                      const materialMatch = si.items?.some((item: any) => 
+                        String(item.product || '').toLowerCase().includes(searchLower) ||
+                        String(item.description || '').toLowerCase().includes(searchLower)
+                      );
+                      
+                      return invoiceMatch || materialMatch;
+                    })
                     .map((saleInvoice: any) => (
                     <tr key={saleInvoice._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1384,6 +1361,19 @@ export default function SaleInvoicePage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {saleInvoice.customer}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {saleInvoice.items?.length > 0 
+                          ? saleInvoice.items.map((item: any, idx: number) => (
+                              <div key={idx} className="truncate max-w-xs" title={item.description}>
+                                {item.product} - {item.description}
+                              </div>
+                            ))
+                          : '-'
+                        }
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {saleInvoice.totalWeight ? `${saleInvoice.totalWeight.toFixed(2)} kg` : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         PKR {saleInvoice.netAmount?.toFixed(2) || '0.00'}
@@ -1466,6 +1456,13 @@ export default function SaleInvoicePage() {
           </div>
         </div>
       </div>
+
+      {/* Search Modal */}
+      <SaleInvoiceSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSelectInvoice={handleSelectInvoiceFromModal}
+      />
     </Layout>
   );
 }

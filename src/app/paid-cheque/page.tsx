@@ -7,7 +7,20 @@ export const dynamic = 'force-dynamic';
 import Layout from '@/components/Layout/Layout';
 
 type Status = 'Due' | 'Paid' | 'Bounced';
-interface Cheque { _id: string; chequeNo: string; bank: string; amount: number; dueDate?: string; status: Status; }
+type PartyType = 'Customer' | 'Supplier';
+interface Cheque { 
+  _id: string; 
+  chequeNumber?: string;
+  chequeNo: string; 
+  bank: string; 
+  partyType: PartyType;
+  partyId: string;
+  amount: number; 
+  issueDate?: string;
+  dueDate?: string; 
+  status: Status;
+  notes?: string;
+}
 
 export default function PaidChequePage() {
   const [cheques, setCheques] = useState<Cheque[]>([]);
@@ -103,25 +116,33 @@ export default function PaidChequePage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cheque</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cheque #</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cheque No</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                   <th className="px-6 py-3"></th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loading && cheques.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                 ) : cheques.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No paid cheques</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-8 text-center text-gray-500">No paid cheques</td></tr>
                 ) : (
                   cheques.map((c) => (
                     <tr key={c._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{c.chequeNumber || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.chequeNo}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.bank}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.dueDate?.toString()?.slice(0,10)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.amount?.toFixed?.(2) || c.amount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{c.partyType || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">PKR {c.amount?.toFixed?.(2) || c.amount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{c.issueDate?.toString()?.slice(0,10) || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{c.dueDate?.toString()?.slice(0,10) || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{c.notes || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
                           <button onClick={() => updateStatus(c._id, 'Due')} className="text-blue-600 hover:text-blue-900">Revert to Due</button>

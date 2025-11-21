@@ -204,8 +204,8 @@ export default function ChequeReportPage() {
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 font-semibold">
-                  <td colSpan={7} className="px-6 py-3 text-right">Total</td>
-                  <td className="px-6 py-3 text-right">{total.toFixed(2)}</td>
+                  <td colSpan={7} className="px-6 py-3 text-right text-gray-900">Total</td>
+                  <td className="px-6 py-3 text-right text-gray-900">{total.toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>

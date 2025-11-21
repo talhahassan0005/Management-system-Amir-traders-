@@ -152,132 +152,92 @@ export async function GET(request: NextRequest) {
     receipts.forEach(r => pushReceipt(rows, r));
     preReceipts.forEach(r => pushReceipt(preRows, r));
     
-    // Add sale invoices
+    // Add sale invoices - COMBINED per invoice (not per item)
     const handleSaleInvoices = (source: any[], target: Row[]) => {
       source.forEach(si => {
         const paymentType = String((si as any).paymentType || '').toLowerCase();
         const isCreditSale = paymentType === 'credit';
         const isCashSale = paymentType === 'cash';
         
+        // Calculate totals across all items
+        let totalAmount = 0;
+        let totalQty = 0;
+        let totalWeight = 0;
+        const itemNames: string[] = [];
+        
         if (si.items && si.items.length > 0) {
           si.items.forEach((item: any) => {
-            const amount = Number(item.value || 0);
-            
-            if (isCreditSale) {
-              // Credit sale: customer owes money (debit)
-              target.push({
-                date: si.date,
-                type: 'Sale',
-                voucher: si.invoiceNumber,
-                debit: amount,
-                credit: 0,
-                qty: item.pkt || 0,
-                weight: item.weight || 0,
-                itemName: item.description || '',
-                rate: item.rate || 0,
-                reelNo: item.reelNo || ''
-              });
-            } else if (isCashSale) {
-              // Cash sale: add both sale (debit) and payment received (credit) to balance out
-              target.push({
-                date: si.date,
-                type: 'Sale',
-                voucher: si.invoiceNumber,
-                debit: amount,
-                credit: 0,
-                qty: item.pkt || 0,
-                weight: item.weight || 0,
-                itemName: item.description || '',
-                rate: item.rate || 0,
-                reelNo: item.reelNo || ''
-              });
-              target.push({
-                date: si.date,
-                type: 'Payment',
-                voucher: si.invoiceNumber + '-CASH',
-                debit: 0,
-                credit: amount,
-                qty: 0,
-                weight: 0,
-                itemName: 'Cash Payment',
-                rate: 0,
-                reelNo: ''
-              });
-            } else {
-              // Default behavior for other payment types
-              target.push({
-                date: si.date,
-                type: 'Sale',
-                voucher: si.invoiceNumber,
-                debit: amount,
-                credit: 0,
-                qty: item.pkt || 0,
-                weight: item.weight || 0,
-                itemName: item.description || '',
-                rate: item.rate || 0,
-                reelNo: item.reelNo || ''
-              });
+            totalAmount += Number(item.value || 0);
+            totalQty += Number(item.pkt || 0);
+            totalWeight += Number(item.weight || 0);
+            if (item.description) {
+              itemNames.push(item.description);
             }
           });
         } else {
-          // If no items, add the invoice total as a single entry
-          const totalAmount = si.netAmount || si.totalAmount || 0;
-          
-          if (isCreditSale) {
-            // Credit sale: customer owes money (debit)
-            target.push({
-              date: si.date,
-              type: 'Sale',
-              voucher: si.invoiceNumber,
-              debit: totalAmount,
-              credit: 0,
-              qty: 0,
-              weight: si.totalWeight || 0,
-              itemName: 'Sale Invoice',
-              rate: 0,
-              reelNo: ''
-            });
-          } else if (isCashSale) {
-            // Cash sale: add both sale (debit) and payment received (credit) to balance out
-            target.push({
-              date: si.date,
-              type: 'Sale',
-              voucher: si.invoiceNumber,
-              debit: totalAmount,
-              credit: 0,
-              qty: 0,
-              weight: si.totalWeight || 0,
-              itemName: 'Sale Invoice',
-              rate: 0,
-              reelNo: ''
-            });
-            target.push({
-              date: si.date,
-              type: 'Payment',
-              voucher: si.invoiceNumber + '-CASH',
-              debit: 0,
-              credit: totalAmount,
-              qty: 0,
-              weight: 0,
-              itemName: 'Cash Payment',
-              rate: 0,
-              reelNo: ''
-            });
-          } else {
-            // Default behavior for other payment types
-            target.push({
-              date: si.date,
-              type: 'Sale',
-              voucher: si.invoiceNumber,
-              debit: totalAmount,
-              credit: 0,
-              qty: 0,
-              weight: si.totalWeight || 0,
-              itemName: 'Sale Invoice',
-              rate: 0,
-              reelNo: ''
-            });
-          }
+          totalAmount = si.netAmount || si.totalAmount || 0;
+          totalWeight = si.totalWeight || 0;
+        }
+        
+        // Single combined entry per invoice
+        const itemName = itemNames.length > 0 
+          ? `Sale Invoice (${itemNames.length} items)` 
+          : 'Sale Invoice';
+        
+        if (isCreditSale) {
+          // Credit sale: customer owes money (debit)
+          target.push({
+            date: si.date,
+            type: 'Sale',
+            voucher: si.invoiceNumber,
+            debit: totalAmount,
+            credit: 0,
+            qty: totalQty,
+            weight: totalWeight,
+            itemName,
+            rate: 0,
+            reelNo: ''
+          });
+        } else if (isCashSale) {
+          // Cash sale: add both sale (debit) and payment received (credit) to balance out
+          target.push({
+            date: si.date,
+            type: 'Sale',
+            voucher: si.invoiceNumber,
+            debit: totalAmount,
+            credit: 0,
+            qty: totalQty,
+            weight: totalWeight,
+            itemName,
+            rate: 0,
+            reelNo: ''
+          });
+          target.push({
+            date: si.date,
+            type: 'Payment',
+            voucher: si.invoiceNumber + '-CASH',
+            debit: 0,
+            credit: totalAmount,
+            qty: 0,
+            weight: 0,
+            itemName: 'Cash Payment',
+            rate: 0,
+            reelNo: ''
+          });
+        } else {
+          // Default behavior for other payment types
+          target.push({
+            date: si.date,
+            type: 'Sale',
+            voucher: si.invoiceNumber,
+            debit: totalAmount,
+            credit: 0,
+            qty: totalQty,
+            weight: totalWeight,
+            itemName,
+            rate: 0,
+            reelNo: ''
+          });
         }
       });
     };
@@ -286,14 +246,16 @@ export async function GET(request: NextRequest) {
       if (from) handleSaleInvoices(preSales as any[], preRows);
     }
     
-    // Add purchase invoices (credit entries for suppliers)
+    // Add purchase invoices - COMBINED per invoice (not per item)
     const handlePurchaseInvoices = (source: any[], target: Row[]) => {
       source.forEach(pi => {
+        // Calculate totals across all items
+        let totalAmount = 0;
+        let totalQty = 0;
+        let totalWeight = 0;
+        const itemNames: string[] = [];
+        
         if (pi.items && pi.items.length > 0) {
-          const tempRows: Row[] = [] as any;
-          let itemsCreditTotal = 0;
-          let qtyTotal = 0;
-          let weightTotal = 0;
           pi.items.forEach((item: any) => {
             const qty = Number(item.qty || item.pkt || 0);
             const wt = Number(item.weight || 0);
@@ -302,54 +264,37 @@ export async function GET(request: NextRequest) {
             const computed = (typeof item.value === 'number' && !Number.isNaN(item.value))
               ? Number(item.value)
               : (basis === 'Quantity' ? rate * qty : rate * wt);
-            itemsCreditTotal += Number(computed || 0);
-            qtyTotal += qty;
-            weightTotal += wt;
-            tempRows.push({
-              date: pi.date,
-              type: 'Purchase',
-              voucher: pi.invoiceNumber,
-              debit: 0,
-              credit: Number(computed || 0),
-              qty,
-              weight: wt,
-              itemName: item.description || item.product || '',
-              rate,
-              reelNo: item.reelNo || ''
-            });
+            
+            totalAmount += Number(computed || 0);
+            totalQty += qty;
+            totalWeight += wt;
+            
+            if (item.description || item.product) {
+              itemNames.push(item.description || item.product);
+            }
           });
-          if (itemsCreditTotal > 0) {
-            tempRows.forEach(r => target.push(r));
-          } else {
-            // Fallback for legacy invoices without rate/value: show as single total row
-            target.push({
-              date: pi.date,
-              type: 'Purchase',
-              voucher: pi.invoiceNumber,
-              debit: 0,
-              credit: pi.netAmount || pi.totalAmount || 0,
-              qty: qtyTotal || 0,
-              weight: weightTotal || 0,
-              itemName: 'Purchase Invoice',
-              rate: 0,
-              reelNo: ''
-            });
-          }
         } else {
-          // If no items, add the invoice total as a single entry
-          target.push({
-            date: pi.date,
-            type: 'Purchase',
-            voucher: pi.invoiceNumber,
-            debit: 0,
-            credit: pi.netAmount || pi.totalAmount || 0,
-            qty: 0,
-            weight: pi.totalWeight || 0,
-            itemName: 'Purchase Invoice',
-            rate: 0,
-            reelNo: ''
-          });
+          totalAmount = pi.netAmount || pi.totalAmount || 0;
+          totalWeight = pi.totalWeight || 0;
         }
+        
+        // Single combined entry per invoice
+        const itemName = itemNames.length > 0 
+          ? `Purchase Invoice (${itemNames.length} items)` 
+          : 'Purchase Invoice';
+        
+        target.push({
+          date: pi.date,
+          type: 'Purchase',
+          voucher: pi.invoiceNumber,
+          debit: 0,
+          credit: totalAmount,
+          qty: totalQty,
+          weight: totalWeight,
+          itemName,
+          rate: 0,
+          reelNo: ''
+        });
       });
     };
     if (partyType === 'Supplier') {
