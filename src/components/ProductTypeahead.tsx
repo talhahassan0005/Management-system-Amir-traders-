@@ -34,9 +34,18 @@ export default function ProductTypeahead({
   // Find current selection label when value changes
   const selected = useMemo(() => options.find((o) => o._id === value) || null, [options, value]);
 
-  useEffect(() => {
-    if (selected) setQuery(selected.item);
+  // Display format: "item - description" if both exist, otherwise just item
+  const displayText = useMemo(() => {
+    if (!selected) return "";
+    if (selected.description) {
+      return `${selected.item} - ${selected.description}`;
+    }
+    return selected.item;
   }, [selected]);
+
+  useEffect(() => {
+    if (selected) setQuery(displayText);
+  }, [selected, displayText]);
 
   // Filter options by item, description, or brand (case-insensitive)
   const filtered = useMemo(() => {
@@ -80,7 +89,8 @@ export default function ProductTypeahead({
       e.preventDefault();
       const pick = filtered[highlight];
       if (pick) {
-        setQuery(pick.item);
+        const displayValue = pick.description ? `${pick.item} - ${pick.description}` : pick.item;
+        setQuery(displayValue);
         setOpen(false);
         onSelect(pick);
       }
@@ -115,7 +125,8 @@ export default function ProductTypeahead({
                 key={o._id}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  setQuery(o.item);
+                  const displayValue = o.description ? `${o.item} - ${o.description}` : o.item;
+                  setQuery(displayValue);
                   setOpen(false);
                   onSelect(o);
                 }}

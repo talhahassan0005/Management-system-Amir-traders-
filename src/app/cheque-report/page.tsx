@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { onChequeChanged } from '@/lib/cross-tab-event-bus';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -77,6 +78,15 @@ export default function ChequeReportPage() {
     const today = new Date().toISOString().slice(0, 10);
     setTo(today);
     fetchData(true);
+
+    // Listen for cheque changes from other tabs/pages
+    const unsubscribe = onChequeChanged(() => {
+      fetchData(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

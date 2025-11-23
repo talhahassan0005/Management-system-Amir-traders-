@@ -32,15 +32,18 @@ export async function GET(request: NextRequest) {
     
     const stocks = await stockQuery;
 
-    // If a specific product+store was requested but no stock doc exists,
-    // fall back to aggregated quantity from purchases - sales by names
-    if ((!stocks || stocks.length === 0) && storeId && productId) {
+    // If a specific product+store was requested, always use aggregated calculation
+    // from purchases - sales to ensure we have the latest accurate quantity
+    if (storeId && productId) {
+      console.log('📊 Specific product+store requested, calculating from invoices...');
       const [store, product] = await Promise.all([
         Store.findById(storeId).lean(),
         Product.findById(productId).lean(),
       ]);
       const storeName = (store as any)?.store || '';
       const productItem = (product as any)?.item || '';
+      console.log('🔍 Looking for:', { storeName, productItem });
+      
       if (storeName && productItem) {
         const [purchasesAgg] = await PurchaseInvoice.aggregate([
           { $unwind: '$items' },
@@ -55,6 +58,7 @@ export async function GET(request: NextRequest) {
         const purchased = Number(purchasesAgg?.qty || 0);
         const sold = Number(salesAgg?.qty || 0);
         const currentQty = Math.max(0, purchased - sold);
+        console.log('✅ Aggregated:', { purchased, sold, currentQty });
         return NextResponse.json({ stocks: [{ productId, storeId, quantityPkts: currentQty, weightKg: 0 }] });
       }
     }

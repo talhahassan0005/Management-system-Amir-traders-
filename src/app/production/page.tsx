@@ -3,7 +3,8 @@
 // @ts-ignore - Suppress transient React type resolution in editor; deps are installed
 import {
   useEffect,
-  useState
+  useState,
+  useMemo
 } from 'react';
 import Layout from '@/components/Layout/Layout';
 import ProductTypeahead from '@/components/ProductTypeahead';
@@ -97,6 +98,10 @@ export default function ProductionPage() {
     packing: 100,
     brand: ''
   });
+  
+  // Track available stock for quick material entry
+  const [quickMaterialAvailableQty, setQuickMaterialAvailableQty] = useState<number>(0);
+
   const [quickProduct, setQuickProduct] = useState<ProductionItem>({
     productId: '',
     reelNo: '',
@@ -159,14 +164,34 @@ export default function ProductionPage() {
       const data = await res.json();
       if (!res.ok) return;
       const rows: any[] = data.stocks || [];
+      console.log('📦 fetchStockFor response:', rows);
+      
       // Merge/Upsert the fetched stock into local state so getAvailableStock reflects latest value
       setStocks((prev: Stock[]) => {
         const next = [...prev];
         const found = rows[0];
-        const idx = next.findIndex((s: any) => s.productId === productId && s.storeId === storeId);
+        const idx = next.findIndex((s: any) => getId(s.productId) === productId && getId(s.storeId) === storeId);
+        
+        console.log('📊 Merging stock - found:', found, 'idx:', idx);
+        
         if (found) {
-          if (idx >= 0) next[idx] = { ...next[idx], ...found } as any;
-          else next.push(found as any);
+          const stockEntry = {
+            ...found,
+            productId: productId,
+            storeId: storeId,
+          } as any;
+          
+          if (idx >= 0) {
+            next[idx] = stockEntry;
+          } else {
+            next.push(stockEntry);
+          }
+          console.log('✅ Stock added/updated:', stockEntry);
+          
+          // Update the available qty state for quick material entry
+          if (productId === quickMaterial.productId && storeId === quickMaterial.storeId) {
+            setQuickMaterialAvailableQty(stockEntry.quantityPkts || 0);
+          }
         } else {
           // Ensure we at least have a zero entry to show 0
           const empty: any = {
@@ -177,7 +202,14 @@ export default function ProductionPage() {
           };
           if (idx >= 0) next[idx] = { ...next[idx], ...empty };
           else next.push(empty);
+          
+          // Update the available qty state for quick material entry
+          if (productId === quickMaterial.productId && storeId === quickMaterial.storeId) {
+            setQuickMaterialAvailableQty(0);
+          }
         }
+        
+        console.log('📦 New stocks array:', next);
         return next;
       });
     } catch {}
@@ -393,22 +425,78 @@ export default function ProductionPage() {
   const getId = (v: any): string => (typeof v === 'string' ? v : (v?._id || v?.id || '')) as string;
 
   const getAvailableStock = (productId: string, storeId: string): number => {
-    const stock = (stocks as any[]).find((s: any) => getId(s.productId) === productId && getId(s.storeId) === storeId);
-    return stock?.quantityPkts || 0;
+    console.log('🔍 getAvailableStock called:', { productId, storeId });
+    console.log('📦 Total stocks in state:', stocks.length);
+    
+    // First try to find in stocks state (might have been fetched)
+    const stock = (stocks as any[]).find((s: any) => {
+      const pidMatch = getId(s.productId) === productId;
+      const sidMatch = getId(s.storeId) === storeId;
+      if (pidMatch && sidMatch) {
+        console.log('  ✓ Found stock in state:', { 
+          stockProductId: s.productId, 
+          stockStoreId: s.storeId, 
+          qty: s.quantityPkts 
+        });
+      }
+      return pidMatch && sidMatch;
+    });
+    
+    if (stock && stock.quantityPkts > 0) {
+      console.log('✅ Using stock from state:', stock.quantityPkts);
+      return stock.quantityPkts || 0;
+    }
+    
+    // If not found or zero, we need to trigger a fetch from the API
+    // This will call the Stock API which has fallback aggregation logic
+    console.log('⚠️ Stock not in state, need to fetch');
+    fetchStockFor(productId, storeId);
+    
+    return 0;
   };
+
+  // Memoized available stock for quick material entry - must be after getAvailableStock
+  const quickMaterialAvailable = useMemo(() => {
+    if (!quickMaterial.productId || !quickMaterial.storeId) return 0;
+    return getAvailableStock(quickMaterial.productId, quickMaterial.storeId);
+  }, [quickMaterial.productId, quickMaterial.storeId, stocks]);
 
   const getProductsForStore = (storeId: string): Product[] => {
     if (!storeId) return [];
+    
+    console.log('🔍 getProductsForStore called for storeId:', storeId);
+    console.log('📦 Total stocks:', stocks.length);
+    console.log('📦 Total products:', products.length);
+    
+    // First try: filter from stocks
     const productIdsInStore = (stocks as any[])
-      .filter((stock: any) => getId(stock.storeId) === storeId && Number(stock.quantityPkts || 0) > 0)
+      .filter((stock: any) => {
+        const match = getId(stock.storeId) === storeId && Number(stock.quantityPkts || 0) > 0;
+        if (match) {
+          console.log('  ✓ Found stock:', stock);
+        }
+        return match;
+      })
       .map((stock: any) => getId(stock.productId));
+    
+    console.log('📋 Product IDs from stocks:', productIdsInStore);
+    
     const uniqueProductIds = Array.from(new Set(productIdsInStore));
     let result = products.filter(product => uniqueProductIds.includes(getId(product._id)));
+    
+    console.log('🎯 Products from stocks:', result.length);
+    
     if (result.length === 0) {
       // fallback to aggregated map from /api/store-stock
       const extra = storeProductMap[storeId] || [];
-      if (extra.length) result = products.filter(p => extra.includes(getId(p._id)));
+      console.log('🔄 Fallback to storeProductMap:', extra.length, 'products');
+      if (extra.length) {
+        result = products.filter(p => extra.includes(getId(p._id)));
+        console.log('🎯 Products from storeProductMap:', result.length);
+      }
     }
+    
+    console.log('✅ Final result:', result.length, 'products');
     return result;
   };
 
@@ -474,14 +562,16 @@ export default function ProductionPage() {
 
   // Quick entry helpers
   const onQuickMaterialStore = (storeId: string) => {
-    setQuickMaterial((prev) => ({ ...prev, storeId }));
+    setQuickMaterial((prev) => ({ ...prev, storeId, productId: '' }));
+    setQuickMaterialAvailableQty(0); // Reset available when store changes
     // Preload list of available products for this store (fallback to store-stock aggregation)
     ensureStoreProducts(storeId);
   };
   const onQuickMaterialProduct = (productId: string) => {
+    console.log('🎯 onQuickMaterialProduct called with:', productId);
     setQuickMaterial((prev) => {
       const product = products.find((pr: Product) => pr._id === productId);
-      return {
+      const updated = {
         ...prev,
         productId,
         description: product?.description || '',
@@ -491,6 +581,17 @@ export default function ProductionPage() {
         packing: 100,
         brand: (product as any)?.brand || ''
       } as any;
+      
+      console.log('📦 Will fetch stock for:', { productId, storeId: updated.storeId });
+      
+      // Fetch stock for this product+store combination to show availability
+      if (updated.storeId && productId) {
+        fetchStockFor(productId, updated.storeId);
+      } else {
+        console.warn('⚠️ Cannot fetch stock - missing store or product');
+      }
+      
+      return updated;
     });
   };
   const onQuickMaterialPkts = (pktVal: number) => {
@@ -776,7 +877,7 @@ export default function ProductionPage() {
                       <ProductTypeahead
                         value={quickMaterial.productId || ''}
                         disabled={!quickMaterial.storeId}
-                        options={getProductsForStore(quickMaterial.storeId).map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
+                        options={products.map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
                         placeholder={!quickMaterial.storeId ? 'Select store first' : 'Type to search product'}
                         onSelect={(p) => onQuickMaterialProduct(p._id)}
                       />
@@ -833,6 +934,15 @@ export default function ProductionPage() {
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Description</label>
                       <input type="text" value={quickMaterial.description || ''} onChange={(e)=> setQuickMaterial((prev)=> ({...prev, description: e.target.value}))} className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm" />
                     </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Available</label>
+                      <input 
+                        type="number" 
+                        value={quickMaterialAvailableQty} 
+                        readOnly 
+                        className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-900 text-sm" 
+                      />
+                    </div>
                   </div>
 
                   <div className="flex space-x-1 mt-2">
@@ -857,23 +967,15 @@ export default function ProductionPage() {
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reel #</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QTY</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Width</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Length</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packing</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Width</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grams</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate On</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grams</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Length</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Packing</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
                               <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                           </thead>
@@ -898,7 +1000,7 @@ export default function ProductionPage() {
                                   <ProductTypeahead
                                     value={it.productId || ''}
                                     disabled={!it.storeId}
-                                    options={getProductsForStore(it.storeId).map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
+                                    options={products.map((p: any) => ({ _id: p._id, item: p.item, description: p.description, brand: (p as any).brand }))}
                                     placeholder={!it.storeId ? 'Select store first' : 'Type to search product'}
                                     onSelect={(p) => onChangeMaterialProduct(idx, p._id)}
                                   />
@@ -936,17 +1038,16 @@ export default function ProductionPage() {
                                 </td>
                                 <td className="px-4 py-2">
                                   <input
-                                    type="text"
-                                    value={it.description || ''}
+                                    type="number"
+                                    value={it.length || 0}
                                     onChange={(e) =>
                                       setForm((p: Production) => {
                                         const materialOut = [...p.materialOut];
-                                        materialOut[idx] = { ...materialOut[idx], description: e.target.value } as any;
+                                        materialOut[idx] = { ...materialOut[idx], length: Number(e.target.value) || 0 } as any;
                                         return { ...p, materialOut };
                                       })
                                     }
-                                    className="w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[16rem]"
-                                    placeholder="Description"
+                                    className="w-full h-10 px-3 py-2 border rounded text-right text-gray-900 min-w-[6rem]"
                                   />
                                 </td>
                                 <td className="px-4 py-2">
@@ -980,20 +1081,6 @@ export default function ProductionPage() {
                                 <td className="px-4 py-2">
                                   <input
                                     type="number"
-                                    value={it.length || 0}
-                                    onChange={(e) =>
-                                      setForm((p: Production) => {
-                                        const materialOut = [...p.materialOut];
-                                        materialOut[idx] = { ...materialOut[idx], length: Number(e.target.value) || 0 } as any;
-                                        return { ...p, materialOut };
-                                      })
-                                    }
-                                    className="w-full h-10 px-3 py-2 border rounded text-right text-gray-900 min-w-[6rem]"
-                                  />
-                                </td>
-                                <td className="px-4 py-2">
-                                  <input
-                                    type="number"
                                     value={it.packing || 0}
                                     onChange={(e) =>
                                       setForm((p: Production) => {
@@ -1004,9 +1091,6 @@ export default function ProductionPage() {
                                     }
                                     className="w-full h-10 px-3 py-2 border rounded text-right text-gray-900 min-w-[6rem]"
                                   />
-                                </td>
-                                <td className="px-4 py-2 text-right">
-                                  {it.productId && it.storeId ? getAvailableStock(it.productId, it.storeId) : '-'}
                                 </td>
                                 <td className="px-4 py-2">
                                   <input
@@ -1022,6 +1106,24 @@ export default function ProductionPage() {
                                     className="w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[10rem]"
                                     placeholder="Brand"
                                   />
+                                </td>
+                                <td className="px-4 py-2">
+                                  <input
+                                    type="text"
+                                    value={it.description || ''}
+                                    onChange={(e) =>
+                                      setForm((p: Production) => {
+                                        const materialOut = [...p.materialOut];
+                                        materialOut[idx] = { ...materialOut[idx], description: e.target.value } as any;
+                                        return { ...p, materialOut };
+                                      })
+                                    }
+                                    className="w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[16rem]"
+                                    placeholder="Description"
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  {it.productId && it.storeId ? getAvailableStock(it.productId, it.storeId) : '-'}
                                 </td>
                                 <td className="px-4 py-2 text-right">
                                   <button
@@ -1208,6 +1310,7 @@ export default function ProductionPage() {
                                   className="w-full h-10 px-3 py-2 border rounded text-gray-900 min-w-[8rem]"
                                   placeholder="Reel#"
                                 />
+                              </td>
                               <td className="px-4 py-2">
                                 <input
                                   type="number"
@@ -1215,7 +1318,6 @@ export default function ProductionPage() {
                                   onChange={(e) => onChangeProductionPkts(idx, Number(e.target.value) || 0)}
                                   className="w-full h-10 px-3 py-2 border rounded text-right text-gray-900 min-w-[6rem]"
                                 />
-                              </td>
                               </td>
                               <td className="px-4 py-2">
                                 <input

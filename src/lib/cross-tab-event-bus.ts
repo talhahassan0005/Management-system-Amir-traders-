@@ -245,3 +245,30 @@ export const onProductionChanged = (callback: Function) => {
     unsub3();
   };
 };
+
+// Cheque events
+export const emitChequeAdded = () => {
+  console.log('💰 Emitting chequeAdded event');
+  crossTabEventBus.emit('chequeAdded');
+};
+
+export const emitChequeUpdated = () => {
+  console.log('💰 Emitting chequeUpdated event');
+  crossTabEventBus.emit('chequeUpdated');
+};
+
+export const emitChequeDeleted = () => {
+  console.log('💰 Emitting chequeDeleted event');
+  crossTabEventBus.emit('chequeDeleted');
+};
+
+export const onChequeChanged = (callback: Function) => {
+  const unsub1 = crossTabEventBus.on('chequeAdded', callback);
+  const unsub2 = crossTabEventBus.on('chequeUpdated', callback);
+  const unsub3 = crossTabEventBus.on('chequeDeleted', callback);
+  return () => {
+    unsub1();
+    unsub2();
+    unsub3();
+  };
+};

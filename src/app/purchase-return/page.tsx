@@ -31,6 +31,8 @@ interface PurchaseReturn {
 
 export default function PurchaseReturnPage() {
   const [returns, setReturns] = useState<PurchaseReturn[]>([])
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [purchaseInvoices, setPurchaseInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -55,7 +57,33 @@ export default function PurchaseReturnPage() {
 
   useEffect(() => {
     fetchReturns()
+    fetchSuppliers()
+    fetchPurchaseInvoices()
   }, [])
+
+  const fetchSuppliers = async () => {
+    try {
+      const response = await fetch('/api/suppliers?limit=1000')
+      if (response.ok) {
+        const data = await response.json()
+        setSuppliers(data.suppliers || [])
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error)
+    }
+  }
+
+  const fetchPurchaseInvoices = async () => {
+    try {
+      const response = await fetch('/api/purchase-invoices?limit=1000')
+      if (response.ok) {
+        const data = await response.json()
+        setPurchaseInvoices(data.invoices || [])
+      }
+    } catch (error) {
+      console.error('Error fetching purchase invoices:', error)
+    }
+  }
 
   const fetchReturns = async () => {
     try {
@@ -197,11 +225,19 @@ export default function PurchaseReturnPage() {
             </label>
             <input
               type="text"
+              list="invoices-list"
               value={originalInvoiceNumber}
               onChange={(e) => setOriginalInvoiceNumber(e.target.value)}
-              placeholder="PI-000001"
+              placeholder="Type to search invoice"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <datalist id="invoices-list">
+              {purchaseInvoices.map((inv) => (
+                <option key={inv._id} value={inv.invoiceNumber}>
+                  {inv.invoiceNumber} - {inv.supplier} - Rs. {inv.netAmount?.toLocaleString()}
+                </option>
+              ))}
+            </datalist>
           </div>
 
           <div>
@@ -210,11 +246,19 @@ export default function PurchaseReturnPage() {
             </label>
             <input
               type="text"
+              list="suppliers-list"
               value={supplier}
               onChange={(e) => setSupplier(e.target.value)}
-              placeholder="Supplier name"
+              placeholder="Type to search supplier"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <datalist id="suppliers-list">
+              {suppliers.map((s) => (
+                <option key={s._id} value={s.person || s.description}>
+                  {s.person ? `${s.person} (${s.description})` : s.description}
+                </option>
+              ))}
+            </datalist>
           </div>
         </div>
 

@@ -183,13 +183,16 @@ export async function GET(request: NextRequest) {
 
     let data = rows.map((r) => {
       const p = productByItem.get(r.product) || {};
-      // Prefer explicit current from Stock merge if available, otherwise purchases - sales
-  const prodOutQty = Number((r as any)._prodOutQty || 0);
-  const prodOutWeight = Number((r as any)._prodOutWeight || 0);
-  const computedQty = Number(r.purchasedQty || 0) - Number(r.soldQty || 0) - prodOutQty;
-  const computedWeight = Number(r.purchasedWeight || 0) - Number(r.soldWeight || 0) - prodOutWeight;
-  const currentQty = (r as any)._currentQtyFromStock !== undefined ? Number((r as any)._currentQtyFromStock) : computedQty;
-  const currentWeight = (r as any)._currentWeightFromStock !== undefined ? Number((r as any)._currentWeightFromStock) : computedWeight;
+      // Calculate current from purchases - sales - production out
+      const prodOutQty = Number((r as any)._prodOutQty || 0);
+      const prodOutWeight = Number((r as any)._prodOutWeight || 0);
+      const computedQty = Number(r.purchasedQty || 0) - Number(r.soldQty || 0) - prodOutQty;
+      const computedWeight = Number(r.purchasedWeight || 0) - Number(r.soldWeight || 0) - prodOutWeight;
+      
+      // Use computed value (from invoices) as the source of truth
+      // Stock collection may be outdated if purchases aren't updating it
+      const currentQty = computedQty;
+      const currentWeight = computedWeight;
       return {
         store: r.store || '',
         itemCode: r.product || '',

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout/Layout';
 import { Loader2, Plus, Save } from 'lucide-react';
+import { emitChequeAdded, emitChequeUpdated, emitChequeDeleted } from '@/lib/cross-tab-event-bus';
 
 type Status = 'Due' | 'Paid' | 'Bounced';
 type PartyType = 'Customer' | 'Supplier';
@@ -120,6 +121,11 @@ export default function ReceiptChequePage() {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.error || 'Failed to save cheque'); return; }
+      if (selected) {
+        emitChequeUpdated();
+      } else {
+        emitChequeAdded();
+      }
       await fetchCheques(true); resetForm(); setSuccessMsg('Cheque saved');
     } catch (e) { console.error('Error saving cheque:', e); setErrorMsg('Unexpected error while saving'); }
     finally { setSaving(false); }
@@ -134,6 +140,7 @@ export default function ReceiptChequePage() {
     try {
       const res = await fetch(`/api/cheques/${id}`, { method: 'DELETE' });
       if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to delete'); return; }
+      emitChequeDeleted();
       if (selected?._id === id) resetForm();
       await fetchCheques(true);
     } catch (e) { console.error('Error deleting cheque:', e); setErrorMsg('Unexpected error while deleting'); }
@@ -143,6 +150,7 @@ export default function ReceiptChequePage() {
     try {
       const res = await fetch(`/api/cheques/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
       if (!res.ok) { const err = await res.json(); setErrorMsg(err.error || 'Failed to update status'); return; }
+      emitChequeUpdated();
       await fetchCheques(true);
     } catch (e) { console.error('Error updating status:', e); setErrorMsg('Unexpected error while updating'); }
   };
