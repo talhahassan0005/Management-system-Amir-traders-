@@ -159,8 +159,8 @@ export default function SaleInvoiceSearchModal({ isOpen, onClose, onSelectInvoic
     setFromDate('');
     setToDate('');
     setResults([]);
-    // Auto-load for 'all' tab
-    if (tab === 'all') {
+    // Auto-load for 'all' and 'product' tabs
+    if (tab === 'all' || tab === 'product') {
       setTimeout(() => handleSearch(), 100);
     }
   };
@@ -266,18 +266,21 @@ export default function SaleInvoiceSearchModal({ isOpen, onClose, onSelectInvoic
 
           {activeTab === 'product' && (
             <div>
-              <select
+              <input
+                type="text"
+                list="products-list"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type to search product"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select Product</option>
+              />
+              <datalist id="products-list">
                 {products.map((product) => (
                   <option key={product._id} value={product.item}>
                     {product.item} - {product.description}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </div>
           )}
 

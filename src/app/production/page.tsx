@@ -586,9 +586,30 @@ export default function ProductionPage() {
       
       // Fetch stock for this product+store combination to show availability
       if (updated.storeId && productId) {
+        // Fetch and update available qty directly
+        (async () => {
+          try {
+            const params = new URLSearchParams({
+              productId,
+              storeId: updated.storeId
+            });
+            const res = await fetch(`/api/stock?${params.toString()}`);
+            const data = await res.json();
+            if (res.ok && data.stocks && data.stocks[0]) {
+              const qty = data.stocks[0].quantityPkts || 0;
+              console.log('✅ Setting available qty:', qty);
+              setQuickMaterialAvailableQty(qty);
+            }
+          } catch (e) {
+            console.error('Error fetching stock:', e);
+          }
+        })();
+        
+        // Also update stocks state
         fetchStockFor(productId, updated.storeId);
       } else {
         console.warn('⚠️ Cannot fetch stock - missing store or product');
+        setQuickMaterialAvailableQty(0);
       }
       
       return updated;

@@ -118,26 +118,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Store not found for material: ${material.productId}` }, { status: 404 });
       }
 
-      // Check stock availability in Stock collection first
-      const stock = await Stock.findOne({ 
-        productId: material.productId, 
-        storeId: material.storeId 
-      });
-
-      let availablePkts = Number(stock?.quantityPkts || 0);
-      if (!stock) {
-        // Fallback: compute from purchases - sales by store/product names
-        const product = await Product.findById(material.productId).lean();
-        const productItem = (product as any)?.item || '';
-        const storeName = (store as any)?.store || '';
-        if (productItem && storeName) {
-          availablePkts = await aggregateAvailableQty(storeName, productItem);
-        }
+      // Always compute available stock from purchases - sales by store/product names
+      // to get the most accurate current stock level
+      const product = await Product.findById(material.productId).lean();
+      const productItem = (product as any)?.item || '';
+      const storeName = (store as any)?.store || '';
+      
+      let availablePkts = 0;
+      if (productItem && storeName) {
+        availablePkts = await aggregateAvailableQty(storeName, productItem);
       }
 
       if (availablePkts < Number(material.quantityPkts || 0)) {
         return NextResponse.json({ 
-          error: `Insufficient stock for product ${material.productId} in store ${store.store}` 
+          error: `Insufficient stock for product ${material.productId} in store ${store.store}. Available: ${availablePkts}, Required: ${material.quantityPkts}` 
         }, { status: 400 });
       }
     }
