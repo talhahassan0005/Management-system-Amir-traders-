@@ -9,8 +9,8 @@ interface Props {
 }
 
 export default function LoginForm({ redirectTo = '/' }: Props) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('amirtraders@gmail.com');
+  const [password, setPassword] = useState('amirtraders1234@*');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
